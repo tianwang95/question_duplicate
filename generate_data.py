@@ -45,6 +45,10 @@ def main():
 		start = 1;
 		proto_list = [];
 		for row in question_tsv:
+			###
+			if count >= 1700:
+				break;
+			###
 			sample_id = int(row[0])
 			q1_id = int(row[1])
 			q2_id = int(row[2])
