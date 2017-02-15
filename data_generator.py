@@ -3,7 +3,7 @@ import pickle
 import random
 
 class DataGenerator:
-    def __init__(self, directory, batch_size = 1, randomize = False):
+    def __init__(self, directory, batch_size = 1, randomize = False, post_process_func = None):
         self.directory = directory
         self.file_list = os.listdir(self.directory)
         self.batch_size = batch_size
@@ -35,6 +35,8 @@ class DataGenerator:
         if self.file_idx < len(self.file_list):
             with open(os.path.join(self.directory, self.file_list[self.file_idx]), 'rb') as data_file:
                 self.cur_samples = pickle.load(data_file)
+                if post_process_func:
+                    self.cur_samples = map(post_process_func, self.cur_samples)
                 self.idx_order = range(len(self.cur_samples))
                 if self.is_random:
                     random.shuffle(self.idx_order)

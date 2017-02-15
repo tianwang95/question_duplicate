@@ -10,7 +10,7 @@ class Featurizer:
             features[name] = function
 
     def featurize(data_point):
-        feature_vec = Counter();
+        feature_vec = {};
         for _, func in features.iteritems():
-            feature_vec += func(data_point)
+            feature_vec.update(func(data_point))
         return feature_vec
