@@ -6,6 +6,7 @@ import csv
 import os
 import shutil
 import pickle
+from data_point import DataPoint
 
 """
 Python script for generating annotations for the Quora questions dataset
@@ -14,28 +15,17 @@ format is 'pair id, q1 id, q2 id, q1 text, q2 text, is duplicate'
 DIRECTORY = "dataset/processed"
 QUESTIONS_PER_FOLDER = 800
 
-class DataPoint(object):
-    def __init__(self, sample_id, q1_id, q2_id, q1_text, q2_text, q1_proto, q2_proto, is_duplicate):
-        self.sample_id = sample_id
-        self.q1_id = q1_id
-        self.q2_id = q2_id
-        self.q1_text = q1_text
-        self.q2_text = q2_text
-        self.q1_proto = q1_proto
-        self.q2_proto = q2_proto
-        self.is_duplicate = is_duplicate
-
 def save_protos(proto_list, file_name):
     with open(file_name, 'w+') as dat_file:
         pickle.dump(proto_list, dat_file)
 
 def main():
-    client = CoreNLPClient(server='http://localhost:9000') 
-
     # clear contents of directory
     if os.path.exists(DIRECTORY):
-        shutil.rmtree(DIRECTORY)
+        raise Exception("{} already exists.".format(DIRECTORY))
     os.makedirs(DIRECTORY)
+
+    client = CoreNLPClient(server='http://localhost:9000') 
 
     with open('dataset/raw/quora_duplicate_questions.tsv', 'rb') as question_tsv:
         question_tsv = csv.reader(question_tsv, delimiter='\t')
