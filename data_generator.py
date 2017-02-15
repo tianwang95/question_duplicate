@@ -2,7 +2,7 @@ import os
 import pickle
 import random
 
-class DataGenerator(object):
+class DataGenerator:
 
 	def __init__(self, directory, batch_size = 1, randomize = False):
 		self.directory = directory

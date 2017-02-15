@@ -42,12 +42,9 @@ def main():
         # move past first line
         next(question_tsv)
         count = 0
-        start = 163201 #1;
+        start = 1;
         proto_list = []
         for row in question_tsv:
-            if (count < 163200):
-                count += 1
-                continue;
             sample_id = int(row[0])
             q1_id = int(row[1])
             q2_id = int(row[2])

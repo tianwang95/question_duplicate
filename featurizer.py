@@ -1,5 +1,5 @@
 from collections import Counter
-class Featurizer(object):
+class Featurizer:
 
 	def __init__(self):
 		features = {}
@@ -12,6 +12,6 @@ class Featurizer(object):
 
 	def featurize(data_point):
 		feature_vec = Counter();
-		for name, func in features.iteritems():
-			func(feature_vec)
+		for _, func in features.iteritems():
+			feature_vec += func(data_point)
 		return feature_vec
