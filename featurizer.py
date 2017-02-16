@@ -1,5 +1,5 @@
 from collections import Counter
-class Featurizer:
+class Featurizer(object):
     def __init__(self):
         features = {}
 

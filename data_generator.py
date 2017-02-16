@@ -1,61 +1,47 @@
-import os
-import pickle
 import random
+from stanza.nlp import CoreNLP_pb2
+from data_point import DataPoint
+import gzip
+import struct
+import csv
 
-class DataGenerator:
-    def __init__(self, directory, batch_size = 1, randomize = False, post_process_func = None):
-        self.directory = directory
-        self.file_list = os.listdir(self.directory)
-        self.batch_size = batch_size
-        self.cur_samples = []
-        self.idx_order = []
-        self.sample_idx = 0
-        self.file_idx = 0
-        self.is_random = randomize
+class AnnotatedData(object):
+    def __init__(self, annotated_file, raw_dataset_file):
+        self.annotated_file = gzip.open(annotated_file, 'rb')
+        self.raw_dataset_file = open(raw_dataset_file, 'rb')
+        self.question_tsv = csv.reader(self.raw_dataset_file, delimiter='\t')
+        next(self.question_tsv)
 
-        # check for randomization
-        if self.is_random:
-            random.shuffle(self.file_list)
+    def __enter__(self):
+        return self
 
-        print self.file_list
-        print self.cur_samples
-        print self.file_idx
+    def __exit__(self):
+        self.annotated_file.close()
+        self.raw_dataset_file.close()
 
     def __iter__(self):
         return self
 
-    def reset(self):
-        if self.is_random:
-            random.shuffle(self.file_list)
-
     def __next__(self):
         return self.next()
 
-    def init_next_file(self):
-        if self.file_idx < len(self.file_list):
-            with open(os.path.join(self.directory, self.file_list[self.file_idx]), 'rb') as data_file:
-                self.cur_samples = pickle.load(data_file)
-                if post_process_func:
-                    self.cur_samples = map(post_process_func, self.cur_samples)
-                self.idx_order = range(len(self.cur_samples))
-                if self.is_random:
-                    random.shuffle(self.idx_order)
-            self.file_idx += 1
-            self.sample_idx = 0
+    def get_next_proto(self):
+        size_bytes = self.annotated_file.read(4)
+        if size_bytes:
+            size = struct.unpack('i', size_bytes)[0]
+            return self.annotated_file.read(size)
         else:
-            self.sample_idx = 0
-            self.cur_samples = []
+            return ''
 
     def next(self):
-        samples = [];
-        needed_samples = self.batch_size
-        while needed_samples > 0:
-            if self.sample_idx >= len(self.cur_samples):
-                self.init_next_file()
-            if self.sample_idx < len(self.cur_samples):
-                samples.append(self.cur_samples[self.idx_order[self.sample_idx]])
-                self.sample_idx += 1
-                needed_samples -= 1
-            else:
-                raise StopIteration()
-        return samples
+        q1_proto = self.get_next_proto()
+        q2_proto = self.get_next_proto()
+        if q1_proto and q2_proto:
+            q1_annotation = CoreNLP_pb2.Document()
+            q1_annotation.ParseFromString(q1_proto)
+            q2_annotation = CoreNLP_pb2.Document()
+            q2_annotation.ParseFromString(q2_proto)
+            row = next(self.question_tsv)
+            return DataPoint(q1_annotation, q2_annotation, bool(int(row[5])))
+        else:
+            raise StopIteration

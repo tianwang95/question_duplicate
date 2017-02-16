@@ -6,11 +6,12 @@ from stanza.nlp import CoreNLP_pb2
 """
 Just hold feature extraction functions
 """
-class Features:
+class Features(object):
     """
     Intersection of q1's set of words and q2's set of words
     """
     def unigram_intersect(datapoint):
+        datapoint.q1_proto
         pass
 
     """
@@ -20,7 +21,7 @@ class Features:
         pass
 
     """
-    Cross unigram
+    Cross unigram: Feature over similar 
     """
     def cross_unigram(datapoint):
         pass
@@ -29,18 +30,6 @@ class Features:
     Cross bigram
     """
     def cross_bigram(datapoint):
-        pass
-
-    """
-    All Q2 Unigrams
-    """
-    def q1_unigram(datapoint):
-        pass
-
-    """
-    All Q2 Bigrams 
-    """
-    def q1_bigram(datapoint):
         pass
 
     """
