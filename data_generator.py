@@ -30,7 +30,7 @@ class AnnotatedData(object):
         if size_bytes:
             size = struct.unpack('i', size_bytes)[0]
             return self.annotated_file.read(size)
-        elset:
+        else:
             return ''
 
     def next(self):
