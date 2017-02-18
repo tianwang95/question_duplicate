@@ -1,0 +1,101 @@
+// -----
+// GRADLE CONFIGURATION
+// -----
+buildscript {
+  repositories {
+    mavenCentral()
+    jcenter()
+  }
+  dependencies {
+    classpath 'com.google.protobuf:protobuf-gradle-plugin:0.7.7'
+  }
+}
+
+task wrapper(type: Wrapper) {
+  gradleVersion = '2.14'
+}
+
+
+// -----
+// COMMON CONFIGURATION
+// -----
+group 'ai.eloquent.qa'
+version '1.0-SNAPSHOT'
+
+// Apply the plugins
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'com.google.protobuf'
+  
+  
+// Configure Protocol Buffers + gRPC
+protobuf {
+  generatedFilesBaseDir = "$projectDir/src/gen/proto/java"
+}
+
+// Be able to pull from Maven Central
+repositories {
+  mavenCentral()
+}
+
+// Set the Java source code version
+sourceCompatibility = 1.8
+
+
+// Tweak compilation
+compileJava {
+  options.fork = true
+  options.forkOptions.setMemoryMaximumSize("1024m")
+}
+
+
+// Copy dependencies into a lib folder
+task copyDeps(type: Copy) {
+  from configurations.runtime
+  into 'build/lib'
+}
+
+
+// Set up unit testing
+test {
+  maxHeapSize = "512mm"
+  jvmArgs '-ea'
+  reports.junitXml {
+    enabled = true
+    destination = file("$projectDir/build/reports/tests")
+  }
+}
+
+
+sourceSets {
+  main {
+    java {
+      srcDir 'src/main/java'
+      srcDir 'src/gen/proto/java/main/java'
+    }
+    resources {
+      srcDir 'src/main/resources'
+    }
+  }
+  test {
+    java {
+      srcDir 'src/test/java'
+    }
+    resources {
+      srcDir 'src/test/resources'
+    }
+  }
+}
+
+dependencies {
+  // SLF4j for a unified logging
+  compile group: 'org.slf4j', name: 'slf4j-api',    version: '1.7.13'
+  compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.13'
+
+  // CoreNLP
+  compile group: 'edu.stanford.nlp', name: 'stanford-corenlp', version: '3.7.0'
+  compile group: 'edu.stanford.nlp', name: 'stanford-corenlp', version: '3.7.0', classifier: 'models'
+
+
+
+}

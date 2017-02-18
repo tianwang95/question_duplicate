@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/quora.iml" filepath="$PROJECT_DIR$/.idea/modules/quora.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/quora_main.iml" filepath="$PROJECT_DIR$/.idea/modules/quora_main.iml" group="quora" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/quora_test.iml" filepath="$PROJECT_DIR$/.idea/modules/quora_test.iml" group="quora" />
+    </modules>
+  </component>
+</project>
