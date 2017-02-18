@@ -30,7 +30,7 @@ class AnnotatedData(object):
         if size_bytes:
             size = struct.unpack('i', size_bytes)[0]
             return self.annotated_file.read(size)
-        else:
+        elset:
             return ''
 
     def next(self):
@@ -46,7 +46,11 @@ class AnnotatedData(object):
         else:
             raise StopIteration
 
-a = AnnotatedData("dataset/processed/quora_annotated.data.gz", "dataset/raw/quora_duplicate_questions.tsv")
-for x in a:
-    print x.q1_annotation.sentence[0].token
-    break
+def test():
+    a = AnnotatedData("dataset/processed/quora_annotated.data.gz", "dataset/raw/quora_duplicate_questions.tsv")
+    for x in a:
+        print x.q1_annotation.sentence[0].token
+        break
+
+if __name__ == "__main__":
+    test()
