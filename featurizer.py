@@ -3,11 +3,11 @@ class Featurizer(object):
     def __init__(self):
         features = {}
 
-    def add_feature(name, function):
-        if name in features:
-            raise ValueError("Already contains feature with name: " + name)
+    def add_feature(function):
+        if function.__name__ in features:
+            raise ValueError("Already contains feature with name: " + function.__name__)
         else:
-            features[name] = function
+            features[function.__name__] = function
 
     def featurize(data_point):
         feature_vec = {};

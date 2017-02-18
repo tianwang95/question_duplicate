@@ -45,3 +45,8 @@ class AnnotatedData(object):
             return DataPoint(q1_annotation, q2_annotation, bool(int(row[5])))
         else:
             raise StopIteration
+
+a = AnnotatedData("dataset/processed/quora_annotated.data.gz", "dataset/raw/quora_duplicate_questions.tsv")
+for x in a:
+    print x.q1_annotation.sentence[0].token
+    break
