@@ -13,7 +13,7 @@ def unigram_intersect(datapoint):
     for token1 in q1_sentence:
         for token2 in q2_sentence:
             if token1.lemma == token2.lemma:
-                fvec[name + ":" + this.token1.lemma] = 1.0
+                fvec[name + ":" + token1.lemma] = 1.0
     return fvec
 
 """
@@ -26,8 +26,8 @@ def bigram_intersect(datapoint):
     q2_sentence = datapoint.q2_annotation.sentence[0].token
     for i in xrange(1, len(q1_sentence)):
         for j in xrange(1, len(q2_sentence)):
-            if (q1_sentence[i-1].lemma == q2_sentence[i-1].lemma
-            and q1_sentence[i].lemma == q2_sentence[i].lemma):
+            if (q1_sentence[i-1].lemma == q2_sentence[j-1].lemma
+            and q1_sentence[i].lemma == q2_sentence[j].lemma):
                 fvec["{}:{},{}".format(name, q1_sentence[i-1].lemma, q1_sentence[i].lemma)] = 1.0
     return fvec
 
@@ -56,11 +56,11 @@ def cross_bigram(datapoint):
     q2_sentence = datapoint.q2_annotation.sentence[0].token
     for i in xrange(1, len(q1_sentence)):
         for j in xrange(1, len(q2_sentence)):
-            if q1_sentence[i].pos == q2_sentence[i].pos:
-                a, b = _sort_pair(q1_sentence[i-1].lemma + "," + q1_sentences[i].lemma,
-                                  q2_sentence[i-1].lemma + "," + q2_sentences[i].lemma)
+            if q1_sentence[i].pos == q2_sentence[j].pos:
+                a, b = _sort_pair(q1_sentence[i-1].lemma + "," + q1_sentence[i].lemma,
+                                  q2_sentence[j-1].lemma + "," + q2_sentence[j].lemma)
                 fvec["{}:{}:{}".format(name, a, b)] = 1.0
-    pass
+    return fvec
 
 """
 All Unigrams
@@ -126,7 +126,7 @@ def overlap_count(datapoint):
     count = len(q1_sentence & q2_sentence)
     total = len(q1_sentence | q2_sentence)
     fvec[name] = count
-    fvec[name + "_fraction"] = float(count) / total
+    fvec[name + "_fraction"] = float(count) / total if total != 0 else 0.0
     return fvec
 
 def overlap_entities(datapoint):
@@ -137,7 +137,7 @@ def overlap_entities(datapoint):
     count = len(q1_sentence & q2_sentence)
     total = len(q1_sentence | q2_sentence)
     fvec[name] = count
-    fvec[name + "_fraction"] = float(count) / total
+    fvec[name + "_fraction"] = float(count) / total if total != 0 else 0.0
     return fvec
 
 def overlap_nouns(datapoint):
@@ -148,7 +148,7 @@ def overlap_nouns(datapoint):
     count = len(q1_sentence & q2_sentence)
     total = len(q1_sentence | q2_sentence)
     fvec[name] = count
-    fvec[name + "_fraction"] = float(count) / total
+    fvec[name + "_fraction"] = float(count) / total if total != 0 else 0.0
     return fvec
 
 def overlap_adj(datapoint):
@@ -159,7 +159,7 @@ def overlap_adj(datapoint):
     count = len(q1_sentence & q2_sentence)
     total = len(q1_sentence | q2_sentence)
     fvec[name] = count
-    fvec[name + "_fraction"] = float(count) / total
+    fvec[name + "_fraction"] = float(count) / total if total != 0 else 0.0
     return fvec
 
 def overlap_verbs(datapoint):
@@ -170,7 +170,7 @@ def overlap_verbs(datapoint):
     count = len(q1_sentence & q2_sentence)
     total = len(q1_sentence | q2_sentence)
     fvec[name] = count
-    fvec[name + "_fraction"] = float(count) / total
+    fvec[name + "_fraction"] = float(count) / total if total != 0 else 0.0
     return fvec
 
 """

@@ -1,7 +1,8 @@
 #!usr/bin/env
 from featurizer import Featurizer
-from data_generator import DataGenerator
+from data_generator import AnnotatedData
 from stanza.nlp import CoreNLP_pb2
+from sklearn.feature_extraction import DictVectorizer
 import features
 import gzip
 import os
@@ -29,13 +30,19 @@ def compute_features():
         return
 
     # now featurize if we don't have the features already 
-    dg = DataGenerator("dataset/processed/quora_annotated.data.gz", "dataset/raw/quora_duplicate_questions.tsv") 
+    ad = AnnotatedData("dataset/processed/quora_annotated.data.gz", "dataset/raw/quora_duplicate_questions.tsv") 
     featurized_X = []
     y = []
-    for data_point in dg:
-        featurizer.featurize(data_point)
+    count = 0
+    for data_point in ad:
+        count += 1
+        if (count >= 100):
+            break;
+        featurized_X.append(featurizer.featurize(data_point))
         y = 1.0 if data_point else 0.0
 
-def get_features():
-    directory = "dataset/processed"
+    vectorizer = DictVectorizer()
+    X = vectorizer.fit_transform(featurized_X)
+
+compute_features()
 
