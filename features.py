@@ -24,8 +24,8 @@ def bigram_intersect(datapoint):
     fvec = {}
     q1_sentence = datapoint.q1_annotation.sentence[0].token
     q2_sentence = datapoint.q2_annotation.sentence[0].token
-    for i in xrange(1, len(q1_sentence)):
-        for j in xrange(1, len(q2_sentence)):
+    for i in range(1, len(q1_sentence)):
+        for j in range(1, len(q2_sentence)):
             if (q1_sentence[i-1].lemma == q2_sentence[j-1].lemma
             and q1_sentence[i].lemma == q2_sentence[j].lemma):
                 fvec["{}:{},{}".format(name, q1_sentence[i-1].lemma, q1_sentence[i].lemma)] = 1.0
@@ -54,8 +54,8 @@ def cross_bigram(datapoint):
     fvec = {}
     q1_sentence = datapoint.q1_annotation.sentence[0].token
     q2_sentence = datapoint.q2_annotation.sentence[0].token
-    for i in xrange(1, len(q1_sentence)):
-        for j in xrange(1, len(q2_sentence)):
+    for i in range(1, len(q1_sentence)):
+        for j in range(1, len(q2_sentence)):
             if q1_sentence[i].pos == q2_sentence[j].pos:
                 a, b = _sort_pair(q1_sentence[i-1].lemma + "," + q1_sentence[i].lemma,
                                   q2_sentence[j-1].lemma + "," + q2_sentence[j].lemma)
@@ -84,9 +84,9 @@ def bigrams(datapoint):
     fvec = {}
     q1_sentence = datapoint.q1_annotation.sentence[0].token
     q2_sentence = datapoint.q2_annotation.sentence[0].token
-    for i in xrange(1, len(q1_sentence)):
+    for i in range(1, len(q1_sentence)):
         fvec["{}:{},{}".format(name, q1_sentence[i-1].lemma, q1_sentence[i].lemma)] = 1.0
-    for i in xrange(1, len(q2_sentence)):
+    for i in range(1, len(q2_sentence)):
         fvec["{}:{},{}".format(name, q2_sentence[i-1].lemma, q2_sentence[i].lemma)] = 1.0
     return fvec
 
@@ -96,10 +96,10 @@ BLEU score of q2 w/respect to q1, w/ bleu 1 through 4
 def bleu(datapoint):
     name = "bleu"
     fvec = {}
-    for i in xrange(1, 5):
+    for i in range(1, 5):
         q1 = [token.lemma for token in datapoint.q1_annotation.sentence[0].token]
         q2 = [token.lemma for token in datapoint.q2_annotation.sentence[0].token]
-        score = sentence_bleu([q1], q2, tuple([1.0 / i if x < i else 0.0 for x in xrange(4)]))
+        score = sentence_bleu([q1], q2, tuple([1.0 / i if x < i else 0.0 for x in range(4)]))
         fvec["{}:{}".format(name, i)] = score
     return fvec
 
