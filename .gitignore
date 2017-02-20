@@ -1,6 +1,12 @@
 # Ignore the dataset
 dataset/
 
+# Ignore Saved Models
+saved_models/
+
+# Ignore .seg
+*.seg
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
