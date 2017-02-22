@@ -16,7 +16,11 @@ def get_model(
         dim,
         weights,
         optimizer='rmsprop',
-        loss='binary_crossentropy'):
+        loss='binary_crossentropy',
+        W_regularizer = None,
+        U_regularizer = None,
+        dropout_W = 0.0,
+        dropout_U = 0.0):
 
     word_dim = weights.shape[1]
 
@@ -33,7 +37,7 @@ def get_model(
     q2_input = Input(shape=(data.max_sentence_length,), dtype='int32', name = 'q2_input')
     x_2 = embed(q2_input)
     
-    question_gru = GRU(dim, consume_less='gpu')
+    question_gru = GRU(dim, consume_less='gpu', dropout_W = dropout_W, dropout_U = dropout_U, W_regularizer = W_regularizer, U_regularizer = U_regularizer)
     gru_1 = question_gru(x_1)
     gru_2 = question_gru(x_2)
     merged = merge([gru_1, gru_2], mode='concat')
