@@ -11,5 +11,5 @@ def get_time_index(x, index):
     # reshape x, to timesteps, output_dim
     x_reshape = K.reshape(x, (-1, output_dim))
     index = K.arange(0, batch_size) * time_steps + index
-    return tf.gather(x_reshape, index)
+    return K.gather(x_reshape, index)
 

@@ -12,19 +12,25 @@ def glove2dict(src_filename):
                                   dtype='float32') for line in reader}
 
 class Data:
-    def __init__(self, filename, embed_dim = 50, training=0.75, test=.2, batch_size=32, randomize = False, limit = None):
+    def __init__(self, filename, embed_dim = 50, training=0.75, test=.2, batch_size=32, randomize = False, limit = None, delim_questions = False, dev_mode = False):
         self.filename = filename
         print("Reading Glove vectors... ")
         self.glove = glove2dict('dataset/glove.6B.{}d.txt'.format(embed_dim)) # Glove dictionary
         self.batch_size = batch_size
         self.randomize = randomize
         self.embed_dim = embed_dim
+        self.delim_questions = delim_questions
+        self.delim_char = '<::>'
 
         print("Creating embedding matrix for Keras... ")
         self.vocab_size = len(self.glove)          # Number of tokens
-        self.vocabulary = ["<PAD>", "<UNK>"] + list(self.glove.keys())       # List of all tokens
+        # List of all tokens
+        self.vocabulary = (["<PAD>", "<UNK>"]
+                          + sorted(list(self.glove.keys()))
+                          + ([self.delim_char] if self.delim_questions else []))
+
         self.token_to_ind = defaultdict(lambda: 1)              # Map from token to index in above list
-        self.embedding_matrix = np.zeros((self.vocab_size + 2, self.embed_dim), dtype='float32')
+        self.embedding_matrix = np.zeros((len(self.vocabulary), self.embed_dim), dtype='float32')
         for i, token in enumerate(self.vocabulary):
             self.token_to_ind[token] = i
             embedding = self.glove[token] if token in self.glove else self.random_vector()
@@ -37,14 +43,20 @@ class Data:
         self.max_sentence_length = 0    # Maximum sentence length
         self.dataset = []               # list of (q1_id, q2_id, is_duplicate)
         
+        count = 0
         for q1_id, q2_id, q1_text, q2_text, is_duplicate in Data.quora_dataset(filename):
+            if dev_mode and count >= 10000:
+                break;
             self.add_question(q1_id, q1_text)
             self.add_question(q2_id, q2_text)
             self.dataset.append((q1_id, q2_id, is_duplicate))
+            count += 1
+        
+        if self.delim_questions:
+            self.max_sentence_length += 1
             
         for q_id, sentence in self.questions.items():
-            X = self.pad_array(np.asarray([self.token_to_ind[token.lower()] for token in sentence], dtype='int32'))
-            self.questions_embed[q_id] = X
+            self.transform_to_embed(q_id, sentence)
 
         self.number_samples = len(self.dataset)         # Total number of question pair samples
         self.train_start = 0
@@ -60,11 +72,14 @@ class Data:
 
         print("Data generator initialized")
 
-    def add_question(self, q_id, text):
-        if q_id not in self.questions:
-            sentence = word_tokenize(text)
-            self.max_sentence_length = max(self.max_sentence_length, len(sentence))
-            self.questions[q_id] = sentence
+    def add_question(self, q_id, text, prepend_delim = False):
+        sentence = word_tokenize(text)
+        self.max_sentence_length = max(self.max_sentence_length, len(sentence))
+        self.questions[q_id] = sentence
+
+    def transform_to_embed(self, q_id, tokens):
+        X = self.pad_array(np.asarray([self.token_to_ind[token.lower()] for token in tokens], dtype='int32'))
+        self.questions_embed[q_id] = X
 
     def pad_array(self, array):
         padded = np.zeros((self.max_sentence_length,), dtype='int32')
@@ -93,6 +108,8 @@ class Data:
             for sample in samples:
                 X1 = self.questions_embed[sample[0]]
                 X2 = self.questions_embed[sample[1]]
+                if self.delim_questions:
+                    X2 = np.hstack([self.token_to_ind[self.delim_char], X2[:-1]])
                 y = sample[2]
                 yield(X1, X2, y)
 

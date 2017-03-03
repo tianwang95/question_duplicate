@@ -3,13 +3,14 @@ from keras.models import Sequential
 from keras.models import Model
 from keras.layers.embeddings import Embedding
 from keras.layers import Input, GRU, LSTM, Dense, merge
-from keras.layers.core import RepeatVector
+from keras.layers.core import RepeatVector, Lambda
 from keras import backend as K
 import sys
 sys.path.append('../')
 from data import Data
-from custom.init_state_gru import InitStateGru
+from custom.custom_layers import InitStateGRU, Attention, GetLastIndex
 from custom.utils import get_time_index
+from custom.metrics import binary_precision, binary_recall, binary_f1
 
 """
 dim: size of lstm hidden dimension
@@ -20,11 +21,33 @@ def get_model(
         dim,
         weights,
         optimizer='rmsprop',
-        loss='binary_crossentropy',
+        all_regularizer = None,
         W_regularizer = None,
         U_regularizer = None,
+        W_y_regularizer = None,
+        W_h_regularizer = None,
+        w_regularizer = None,
+        W_p_regularizer = None,
+        W_x_regularizer = None,
         dropout_W = 0.0,
-        dropout_U = 0.0):
+        dropout_U = 0.0,
+        num_hidden = 0):
+
+    if all_regularizer:
+        if not W_regularizer:
+            W_regularizer = all_regularizer
+        if not U_regularizer:
+            U_regularizer = all_regularizer
+        if not W_y_regularizer:
+            W_y_regularizer = all_regularizer
+        if not W_h_regularizer:
+            W_h_regularizer = all_regularizer
+        if not w_regularizer:
+            w_regularizer = all_regularizer
+        if not W_p_regularizer:
+            W_p_regularizer = all_regularizer
+        if not W_x_regularizer:
+            W_x_regularizer = all_regularizer
 
     word_dim = weights.shape[1]
 
@@ -51,28 +74,36 @@ def get_model(
             dropout_U = dropout_U,
             W_regularizer = W_regularizer,
             U_regularizer = U_regularizer)(x_1)
-    
-    # Grab the last time step
-    gru_1_last = get_time_index(x, K.shape(gru_1)[1] - 1)
+
+    ### Get Last Index
+    gru_1_last = GetLastIndex()(gru_1)
 
     #Init state with last time step and run over 2nd question
-    gru_2 = InitStateGRU(gru_1,
+    gru_2 = InitStateGRU(
             dim,
             consume_less='gpu',
-            return_sequences = True,
             dropout_W = dropout_W,
             dropout_U = dropout_U,
             W_regularizer = W_regularizer,
-            U_regularizer = U_regularizer)(x_2)
+            U_regularizer = U_regularizer)([x_2, gru_1_last])
 
-    # Compute M for attention (see Rocktaschel '16)
-    result = Dense(1, init='normal', activation='sigmoid')(gru_2)
+    h_star = Attention(
+             W_y_regularizer = W_y_regularizer,
+             W_h_regularizer = W_h_regularizer,
+             W_p_regularizer = W_p_regularizer,
+             W_x_regularizer = W_x_regularizer,
+             w_regularizer = w_regularizer)([gru_1, gru_2])
+
+    for _ in range(num_hidden):
+        h_star = Dense(dim, activation='tanh')(h_star)
+
+    result = Dense(1, activation='sigmoid')(h_star)
 
     model = Model(input=[q1_input, q2_input], output = result)
 
     model.compile(optimizer=optimizer,
-                  loss=loss,
-                  metrics=['accuracy'])
+                  loss='binary_crossentropy',
+                  metrics=['accuracy', binary_precision, binary_recall, binary_f1])
 
     print(model.summary())
     return model

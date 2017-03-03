@@ -1,5 +1,9 @@
+# Ignore logs
+log/
 # Ignore the dataset
 dataset/
+# Ignore exports
+export/
 
 # Ignore Saved Models
 saved_models/

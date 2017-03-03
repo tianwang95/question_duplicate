@@ -1,2 +1,0 @@
-concat gru, 0.78
-concat gru 0.2 0.2 dropout 0.79
