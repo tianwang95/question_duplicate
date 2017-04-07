@@ -21,6 +21,7 @@ def get_model(
         U_regularizer = None,
         dropout_W = 0.0,
         dropout_U = 0.0, 
+        dropout_embedding = 0.0,
         num_hidden = 0):
 
     word_dim = weights.shape[1]

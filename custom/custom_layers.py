@@ -122,3 +122,20 @@ class GetLastIndex(Layer):
 
         def compute_mask(self, inputs, input_mask=None):
             return None
+
+"""
+P, Q    s x L x d
+X1 = ReLU(W_a * P^T + b_a)      h x L x s
+h_b = ReLU(W_b * h_a + b_b)     h x L x s
+"""
+class DecomposableAttention(Layer):
+    def __init__(self, hidden_size = 2, **kwargs):
+        self.supports_masking = True
+        super(DecomposableAttention, self).__init__(**kwargs)
+
+    """
+    Set up weights for feed-forward neural network
+    """
+    def build(self, inputs, input_mask = None):
+        self.built = True
+

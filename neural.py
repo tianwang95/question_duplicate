@@ -14,14 +14,13 @@ def parse_arguments(avail_models):
     parser.add_argument('--name', action='store', dest='name')
     parser.add_argument('--rnn-dim', action='store', default=128, dest='rnn_dim', type=int)
     parser.add_argument('--batch-size', action='store', default=64, dest='batch_size', type=int)
-    parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = ['50', '100', '200', '300'])
+    parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = [50, 100, 200, 300])
     parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
     parser.add_argument('--limit', action='store', dest='limit', type=int)
     parser.add_argument('--no-save', action='store_false', dest='save_model')
     parser.add_argument('--test', action='store_true', dest='test')
     parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices = [0, 1, 2, 3], type=int)
     parser.add_argument('--num-hidden', action='store', dest='num_hidden', default=0, type=int)
-    parser.add_argument('--dev-mode', action='store_true', dest='dev_mode')
 
     ## TODO: write arguments for evaluation
     ## TODO: write arguments for loading saved model
@@ -67,12 +66,13 @@ def main():
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ''
     ### Prep Data
-    data = Data("dataset/raw/quora_duplicate_questions.tsv",
+    data = Data("dataset/raw/train.tsv",
+                "dataset/raw/dev.tsv",
+                "dataset/raw/test.tsv",
                 embed_dim=options.word_dim,
                 batch_size=options.batch_size,
                 limit=options.limit,
-                delim_questions=(options.model in ['basic_attention', 'read_forward']),
-                dev_mode=options.dev_mode)
+                delim_questions=(options.model in ['basic_attention', 'read_forward']))
     ### Prep model
     model = None
     if options.model == 'concat_gru':
