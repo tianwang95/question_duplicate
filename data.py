@@ -36,8 +36,12 @@ class Data:
             embedding = self.glove[token] if token in self.glove else self.random_vector()
             self.embedding_matrix[i] = embedding
 
+        # make sure padding goes to all zeros
+        self.embedding_matrix[0] = np.zeros((self.embed_dim), dtype='float32')
+
         print("Iterating over question samples to extract metadata...")
         # Iterate over Quora questions to extract metadata
+
         self.train = []
         self.dev = []
         self.test = []
@@ -118,12 +122,12 @@ class Data:
             batch_X2.append(x2)
             batch_y.append(y)
             if len(batch_y) >= self.batch_size:
-                yield([np.vstack(batch_X1), np.vstack(batch_X2)], np.vstack(batch_y))
+                yield([np.vstack(batch_X1), np.vstack(batch_X2)], np.squeeze(np.vstack(batch_y)))
                 batch_X1 = []
                 batch_X2 = []
                 batch_y = []
         if len(batch_y) > 0:
-            yield([np.vstack(batch_X1), np.vstack(batch_X2)], np.vstack(batch_y))
+            yield([np.vstack(batch_X1), np.vstack(batch_X2)], np.squeeze(np.vstack(batch_y)))
 
     # Generator for training data points
     def train_generator(self):
@@ -142,6 +146,7 @@ class Data:
         while True:
             for batch in self.batch_generator(self.__partial_generator(self.dev)):
                 yield batch
+
 
 if __name__ == '__main__':
     data = Data('dataset/raw/train.tsv', 'dataset/raw/dev.tsv', 'dataset/raw/test.tsv', limit = 100)

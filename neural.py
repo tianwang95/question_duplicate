@@ -1,12 +1,11 @@
-from data import Data
-from models import concat_gru, basic_attention, read_forward
-from keras.callbacks import ModelCheckpoint
-from keras.models import model_from_json
-import keras.backend.tensorflow_backend as K
 import tensorflow as tf
+from data import Data
+from models.concat_lstm import ConcatLSTM
+from base_model import BaseModel
 import os
 import sys
 import argparse
+import tempfile
 
 def parse_arguments(avail_models):
     parser = argparse.ArgumentParser()
@@ -15,7 +14,7 @@ def parse_arguments(avail_models):
     parser.add_argument('--rnn-dim', action='store', default=128, dest='rnn_dim', type=int)
     parser.add_argument('--batch-size', action='store', default=64, dest='batch_size', type=int)
     parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = [50, 100, 200, 300])
-    parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
+    # parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
     parser.add_argument('--limit', action='store', dest='limit', type=int)
     parser.add_argument('--no-save', action='store_false', dest='save_model')
     parser.add_argument('--test', action='store_true', dest='test')
@@ -32,16 +31,56 @@ def parse_arguments(avail_models):
 
     return options
 
-def train(model, data, epochs, name, run_test_set = False, save_model = False):
+def main():
+    avail_models = ['concat_lstm']
+    options = parse_arguments(avail_models)
+    ### Set GPU
+    if options.gpu_id != None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(options.gpu_id)
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ''
+    ### Prep Data
+    data = Data("dataset/raw/train.tsv",
+                "dataset/raw/dev.tsv",
+                "dataset/raw/test.tsv",
+                embed_dim=options.word_dim,
+                batch_size=options.batch_size,
+                limit=options.limit,
+                delim_questions=(options.model in ['basic_attention', 'read_forward']))
+
+    ### Set up the directory 
+    name = options.name if options.name else options.model
+    log_dir = None
+    save_dir = None
+    temp_dir = None
+    if options.save_model:
+        save_dir = 'saved_models/{}'.format(name)
+        count = 1;
+        while os.path.exists(save_dir):
+            save_dir = 'saved_models/{}-{}'.format(name, count)
+            count += 1
+        os.makedirs(save_dir)
+        log_dir = os.path.join(save_dir, 'log')
+        os.makedirs(log_dir)
+    else:
+        temp_dir = tempfile.TemporaryDirectory()
+        log_dir = temp_dir.name
+        print('Temp Directory:\t{}'.format(log_dir))
+
+    ### Get the model
+    model = None
+    if options.model == 'concat_lstm':
+        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1])
+
+    # Create full model and train
+    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir)
+    full_model.train()
+
+def _deprecated_train(model, data, epochs, name, run_test_set = False, save_model = False):
     callbacks = None
     if save_model:
         ### Setup model checkpoint callback
-        directory = 'saved_models/{}'.format(name)
-        count = 1;
-        while os.path.exists(directory):
-            directory = 'saved_models/{}-{}'.format(name, count)
-            count += 1
-        os.makedirs(directory)
+        
         callbacks = [ModelCheckpoint(os.path.join(directory, 'model.{epoch:02d}-{val_acc:.2f}.hdf5'))] if save_model else None
         ### Save model
         model_json = model.to_json()
@@ -57,23 +96,8 @@ def train(model, data, epochs, name, run_test_set = False, save_model = False):
                         validation_data = data.dev_generator(),
                         nb_val_samples = data.dev_count)
 
-def main():
-    avail_models = ['concat_gru', 'basic_attention', 'read_forward']
-    options = parse_arguments(avail_models)
-    ### Set GPU
-    if options.gpu_id != None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(options.gpu_id)
-    else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ''
-    ### Prep Data
-    data = Data("dataset/raw/train.tsv",
-                "dataset/raw/dev.tsv",
-                "dataset/raw/test.tsv",
-                embed_dim=options.word_dim,
-                batch_size=options.batch_size,
-                limit=options.limit,
-                delim_questions=(options.model in ['basic_attention', 'read_forward']))
-    ### Prep model
+def _deprecated_main():
+        ### Prep model
     model = None
     if options.model == 'concat_gru':
         model = concat_gru.get_model(
