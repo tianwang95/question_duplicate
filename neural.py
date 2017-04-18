@@ -1,6 +1,7 @@
 import tensorflow as tf
 from data import Data
 from models.concat_lstm import ConcatLSTM
+from models.lstm_cosine import LSTMCosine
 from base_model import BaseModel
 import os
 import sys
@@ -20,6 +21,7 @@ def parse_arguments(avail_models):
     parser.add_argument('--test', action='store_true', dest='test')
     parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices = [0, 1, 2, 3], type=int)
     parser.add_argument('--num-hidden', action='store', dest='num_hidden', default=0, type=int)
+    parser.add_argument('--train-embed', action='store_true', dest='train_embed')
 
     ## TODO: write arguments for evaluation
     ## TODO: write arguments for loading saved model
@@ -32,7 +34,7 @@ def parse_arguments(avail_models):
     return options
 
 def main():
-    avail_models = ['concat_lstm']
+    avail_models = ['concat_lstm', 'lstm_cosine']
     options = parse_arguments(avail_models)
     ### Set GPU
     if options.gpu_id != None:
@@ -54,14 +56,15 @@ def main():
     save_dir = None
     temp_dir = None
     if options.save_model:
-        save_dir = 'saved_models/{}'.format(name)
+        save_dir = os.path.abspath('saved_models/{}'.format(name))
         count = 1;
         while os.path.exists(save_dir):
-            save_dir = 'saved_models/{}-{}'.format(name, count)
+            save_dir = os.path.abspath('saved_models/{}-{}'.format(name, count))
             count += 1
         os.makedirs(save_dir)
         log_dir = os.path.join(save_dir, 'log')
         os.makedirs(log_dir)
+        print('Log Directory:\t{}'.format(log_dir))
     else:
         temp_dir = tempfile.TemporaryDirectory()
         log_dir = temp_dir.name
@@ -70,10 +73,12 @@ def main():
     ### Get the model
     model = None
     if options.model == 'concat_lstm':
-        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1])
+        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1], num_hidden=options.num_hidden)
+    if options.model == 'lstm_cosine':
+        model = LSTMCosine(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1])
 
     # Create full model and train
-    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir)
+    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed)
     full_model.train()
 
 def _deprecated_train(model, data, epochs, name, run_test_set = False, save_model = False):
