@@ -1,7 +1,9 @@
 import tensorflow as tf
-from data import Data
+from data import Data, DataKWay
 from models.concat_lstm import ConcatLSTM
 from models.lstm_cosine import LSTMCosine
+from models.bilstm_cosine import BiLstmCosine
+from models.stacked_lstm_cosine import StackedLstmCosine
 from base_model import BaseModel
 import os
 import sys
@@ -10,18 +12,22 @@ import tempfile
 
 def parse_arguments(avail_models):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', action='store', dest='model', choices=avail_models)
+    parser.add_argument('--model', action='store', dest='model', choices=avail_models, required=True)
     parser.add_argument('--name', action='store', dest='name')
     parser.add_argument('--rnn-dim', action='store', default=128, dest='rnn_dim', type=int)
     parser.add_argument('--batch-size', action='store', default=64, dest='batch_size', type=int)
     parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = [50, 100, 200, 300])
+    parser.add_argument('--num-dense', action='store', dest='num_dense', default=0, type=int)
+    parser.add_argument('--lstm-stack-size', action='store', default=1, dest='stack_size', type=int)
     # parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
     parser.add_argument('--limit', action='store', dest='limit', type=int)
     parser.add_argument('--no-save', action='store_false', dest='save_model')
     parser.add_argument('--test', action='store_true', dest='test')
     parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices = [0, 1, 2, 3], type=int)
-    parser.add_argument('--num-hidden', action='store', dest='num_hidden', default=0, type=int)
+    parser.add_argument('--k-choices', action='store', dest = 'k_choices', default=5, type=int)
+    parser.add_argument('--random-distractors', action='store', default=10, dest='random_distractors', type=int)
     parser.add_argument('--train-embed', action='store_true', dest='train_embed')
+    parser.add_argument('--randomize', action='store_true', dest='randomize')
 
     ## TODO: write arguments for evaluation
     ## TODO: write arguments for loading saved model
@@ -34,7 +40,8 @@ def parse_arguments(avail_models):
     return options
 
 def main():
-    avail_models = ['concat_lstm', 'lstm_cosine']
+    avail_models = ['concat_lstm', 'lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine']
+    k_way_models = ['lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine']
     options = parse_arguments(avail_models)
     ### Set GPU
     if options.gpu_id != None:
@@ -42,13 +49,27 @@ def main():
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ''
     ### Prep Data
-    data = Data("dataset/raw/train.tsv",
-                "dataset/raw/dev.tsv",
-                "dataset/raw/test.tsv",
-                embed_dim=options.word_dim,
-                batch_size=options.batch_size,
-                limit=options.limit,
-                delim_questions=(options.model in ['basic_attention', 'read_forward']))
+    if options.model in k_way_models:
+        data = DataKWay("dataset/raw/questions_kway.tsv",
+                    "dataset/raw/train_15way_cos.tsv",
+                    "dataset/raw/dev_15way_cos.tsv",
+                    "dataset/raw/test_15way_cos.tsv",
+                    options.k_choices,
+                    embed_dim = options.word_dim,
+                    batch_size = options.batch_size,
+                    limit = options.limit,
+                    randomize = options.randomize,
+                    random_distractors = options.random_distractors)
+
+    else:
+        data = Data("dataset/raw/train.tsv",
+                    "dataset/raw/dev.tsv",
+                    "dataset/raw/test.tsv",
+                    embed_dim=options.word_dim,
+                    batch_size=options.batch_size,
+                    limit=options.limit,
+                    delim_questions=(options.model in ['basic_attention', 'read_forward']),
+                    randomize = options.randomize)
 
     ### Set up the directory 
     name = options.name if options.name else options.model
@@ -73,71 +94,17 @@ def main():
     ### Get the model
     model = None
     if options.model == 'concat_lstm':
-        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1], num_hidden=options.num_hidden)
+        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1], num_hidden=options.num_dense)
     if options.model == 'lstm_cosine':
-        model = LSTMCosine(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1])
+        model = LSTMCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
+    if options.model == 'bilstm_cosine':
+        model = BiLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
+    if options.model == 'stacked_lstm_cosine':
+        model = StackedLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense, stack_size = options.stack_size)
 
     # Create full model and train
-    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed)
+    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed, k_choices = options.k_choices if options.model in k_way_models else None)
     full_model.train()
-
-def _deprecated_train(model, data, epochs, name, run_test_set = False, save_model = False):
-    callbacks = None
-    if save_model:
-        ### Setup model checkpoint callback
-        
-        callbacks = [ModelCheckpoint(os.path.join(directory, 'model.{epoch:02d}-{val_acc:.2f}.hdf5'))] if save_model else None
-        ### Save model
-        model_json = model.to_json()
-        with open(os.path.join(directory, 'model.json'), 'w') as f:
-            f.write(model_json)
-
-    ## Train
-    model.fit_generator(data.train_generator(),
-                        samples_per_epoch = data.train_count,
-                        nb_epoch = epochs,
-                        callbacks = callbacks,
-                        verbose = 2,
-                        validation_data = data.dev_generator(),
-                        nb_val_samples = data.dev_count)
-
-def _deprecated_main():
-        ### Prep model
-    model = None
-    if options.model == 'concat_gru':
-        model = concat_gru.get_model(
-                data,
-                dim = options.rnn_dim,
-                weights = data.embedding_matrix,
-                dropout_W = 0.2,
-                dropout_U = 0.2,
-                num_hidden=options.num_hidden)
-    elif options.model == 'read_forward':
-        model = read_forward.get_model(
-                data,
-                dim = options.rnn_dim,
-                weights = data.embedding_matrix,
-                dropout_W = 0.2,
-                dropout_U = 0.2)
-    elif options.model == 'basic_attention':
-        model = basic_attention.get_model(
-                data,
-                dim = options.rnn_dim,
-                weights = data.embedding_matrix,
-                dropout_W = 0.2,
-                dropout_U = 0.2)
-        ### load weights from old model
-    ### Set session log for tensorflow
-    sess = K.get_session()
-    file_writer = tf.summary.FileWriter('log/tf', sess.graph)
-    ### Run experiment
-    name = options.name if options.name else options.model
-    train(model,
-          data,
-          options.epochs,
-          name,
-          options.test,
-          options.save_model)
 
 if __name__ == '__main__':
     main()

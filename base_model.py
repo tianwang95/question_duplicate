@@ -41,12 +41,20 @@ class BaseModel(object):
 
         # build the heart of the model
         with tf.name_scope('model'):
-            self.output = model([q1_embed, q2_embed])
+            returned = model([q1_embed, q2_embed])
+            self.output = None
+            self.question_embedding = None
+            if len(returned) > 1:
+                self.output = returned[0]
+                self.question_embedding = tf.identity(returned[1], name='question_embedding')
+            else:
+                self.output = returned
 
         # get the actual prediction
         with tf.name_scope('prediction'):
             self.output_softmax = tf.nn.softmax(self.output)
             self.y = tf.cast(tf.argmax(self.output_softmax, axis=1), tf.int32)
+            self.y = tf.identity(self.y, name='prediction_index')
 
         with tf.name_scope('metrics'):
             # compute loss
@@ -62,6 +70,11 @@ class BaseModel(object):
         tf.summary.scalar('accuracy', self.accuracy)
         self.merged_summary = tf.summary.merge_all()
 
+        # Print import tensor names
+        print("Input Q1 Node:\t{}".format(self.inputs[0].name))
+        if self.question_embedding != None:
+            print("Q1 Embed Node:\t{}".format(self.question_embedding))
+
     def feed_dict(self, batch):
         return {self.inputs[0]: batch[0], self.inputs[1]: batch[1], self.y_: batch[2]}
         
@@ -75,12 +88,11 @@ class BaseModel(object):
                 self.val_writer = tf.summary.FileWriter(self.log_dir + '/val')
             self.saver = tf.train.Saver()
 
+            # Training
             tf.global_variables_initializer().run()
-            
-            iteration = 0
             dev_generator = self.data.dev_generator()
-
-            # timer
+            iteration = 0
+            save_count = 0
             start_time = time.time()
             for train_batch in self.data.train_generator():
                 # train step
@@ -98,14 +110,15 @@ class BaseModel(object):
                 # save every self.save_freq examples
                 if iteration % self.save_freq == self.save_freq - 1:
                     print("Iteration: {}\tTime: {}".format(iteration, time.time() - start_time))
-                    loss, acc = self.evaluate(self.data.dev_generator(loop = False), sess)
+                    loss, acc = self.evaluate(self.data.dev_generator(loop = False), sess, save_count)
                     if self.save_dir != None:
-                        self.saver.save(sess, os.path.join(self.save_dir, "model-acc:{}-loss:{}.ckpt".format(acc, loss)), global_step = iteration)
+                        self.saver.save(sess, os.path.join(self.save_dir, "model{}-acc:{:.3f}-loss:{:.3f}.ckpt".format(save_count, acc, loss)), global_step = iteration)
+                    save_count += 1
 
                 # update everything  
                 iteration += 1
 
-    def evaluate(self, generator, sess, name = 'evaluation'):
+    def evaluate(self, generator, sess, iteration, name = 'evaluation'):
         loss_total = 0.0
         accuracy_total = 0.0
         mistakes = []
@@ -119,7 +132,7 @@ class BaseModel(object):
 
             # find mistakes
             is_correct = np.equal(batch[2], y).tolist()
-            curr_mistakes = [self.data.point_to_words((batch[0][i], batch[1][i], batch[2][i])) for i in range(batch[0].shape[0]) if not is_correct[i]]
+            curr_mistakes = [list(self.data.point_to_words((batch[0][i], batch[1][i], batch[2][i]))) + [y[i]] for i in range(batch[0].shape[0]) if not is_correct[i]]
             mistakes += curr_mistakes
 
             count += batch[0].shape[0]
@@ -131,10 +144,9 @@ class BaseModel(object):
         print("Accuracy:\t{}".format(accuracy_agg))
         ### save evaluation results
         if self.save_dir != None:
-            mistake_file = os.path.join(self.save_dir, "{}-acc:{}-loss:{}.tsv".format(name, accuracy_agg, loss_agg))
+            mistake_file = os.path.join(self.save_dir, "{}-{}-acc:{:.3f}-loss:{:.3f}.tsv".format(name, iteration, accuracy_agg, loss_agg))
             with open(mistake_file, 'w+') as f:
                 for mistake in mistakes:
-                    f.write("{}\t{}\t{}\n".format(mistake[0], mistake[1], mistake[2]))
+                    f.write("\t".join(str(x) for x in mistake) + "\n")
 
         return loss_agg, accuracy_agg
-

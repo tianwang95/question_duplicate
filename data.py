@@ -38,6 +38,9 @@ class Data:
         self.delim_char = '<DELIM>'
         self.limit = limit
 
+        if not self.randomize:
+            random.seed(42)
+
         print("Creating embedding matrix...")
         self.vocab_size = len(self.glove)          # Number of tokens
         # List of all tokens
@@ -161,24 +164,27 @@ class Data:
                 break
 
 class DataKWay(object):
-    def __init__(self, questions_file, train_file, dev_file, test_file, k_choices, embed_dim = 50, batch_size=32, randomize = False, limit = None, delim_questions = False):
+    def __init__(self, questions_file, train_file, dev_file, test_file, k_choices, embed_dim = 50, batch_size=32, randomize = False, limit = None, random_distractors = 0):
         assert k_choices > 1, "Number of choices must be greater than 1"
+        assert k_choices <= 15, "Number of choices cannot exceed 15 for this dataset"
         print("Reading Glove vectors... ")
         self.glove = glove2dict('dataset/glove.6B.{}d.txt'.format(embed_dim)) # Glove dictionary
         self.batch_size = batch_size
         self.randomize = randomize
         self.embed_dim = embed_dim
-        self.delim_questions = delim_questions
         self.delim_char = '<DELIM>'
         self.limit = limit
         self.k_choices = k_choices
+        self.random_distractors = random_distractors
+
+        if not self.randomize:
+            random.seed(42)
 
         print("Creating embedding matrix... ")
         self.vocab_size = len(self.glove)          # Number of tokens
         # List of all tokens
         self.vocabulary = (["<PAD>", "<UNK>"]
-                          + sorted(list(self.glove.keys()))
-                          + ([self.delim_char] if self.delim_questions else []))
+                          + sorted(list(self.glove.keys())))
 
         self.token_to_ind = defaultdict(lambda: 1)              # Map from token to index in above list
         self.embedding_matrix = np.zeros((len(self.vocabulary), self.embed_dim), dtype='float32')
@@ -231,24 +237,28 @@ class DataKWay(object):
             for row in tsv:
                 if self.limit and count >= self.limit:
                     break
-                split.append((int(row[0]), int(row[1])))
+                whole_point = [int(x) for x in row]
+                split.append(whole_point)
                 count += 1
         return split
 
     def point_to_words(self, point):
-        return tuple([indices_to_words(self.vocabulary, point[0])] + [indices_to_words(self.vocabulary, point[1][i]) for i in range(point[1].shape[1])] + [point[2]])
+        return tuple([indices_to_words(self.vocabulary, point[0])] + [indices_to_words(self.vocabulary, point[1][i]) for i in range(point[1].shape[0])] + [point[2]])
+
+    def get_random_questions(self, count, ignore_list):
+        choices = []
+        while len(choices) < count:
+            choice = random.choice(range(len(self.id_to_question)))
+            if choice not in choices and choice not in ignore_list:
+                choices.append(choice)
+        return choices
 
     def _partial_generator(self, dataset, randomize = False):
-        if not randomize:
-            random.seed(42)
         random.shuffle(dataset)
-        for q1_id, q2_id in dataset:
-            choice_ids = []
-            while True:
-                choice_ids = random.sample(range(len(self.id_to_question)), self.k_choices - 1)
-                if q2_id not in choice_ids:
-                    break
-            choice_ids.append(q2_id)
+        for point in dataset:
+            q1_id = point[0]
+            q2_id = point[1]
+            choice_ids = random.sample(point[2:], self.k_choices - 1 - self.random_distractors) + self.get_random_questions(self.random_distractors, [q1_id, q2_id]) + [q2_id]
             random.shuffle(choice_ids)
             choices = [self.id_to_question[q_id] for q_id in choice_ids]
             yield self.id_to_question[q1_id], np.vstack(choices), choice_ids.index(q2_id)
@@ -261,7 +271,7 @@ class DataKWay(object):
             X1.append(q1)
             X2.append(choices)
             y.append(index)
-            if len(y) > self.batch_size:
+            if len(y) >= self.batch_size:
                 yield np.vstack(X1), np.asarray(X2), np.asarray(y, dtype='int32')
                 X1 = []
                 X2 = []
@@ -292,18 +302,19 @@ class DataKWay(object):
 
 if __name__ == '__main__':
     data_dir = '/mnt/disks/main/question_duplicate/dataset/raw'
-    """
     question_file = os.path.join(data_dir, 'questions_kway.tsv')
-    train_file = os.path.join(data_dir, 'train_kway.tsv')
-    dev_file = os.path.join(data_dir, 'dev_kway.tsv')
-    test_file = os.path.join(data_dir, 'test_kway.tsv')
-    data = DataKWay(question_file, train_file, dev_file, test_file, 5, limit = 100)
+    train_file = os.path.join(data_dir, 'train_15way_cos.tsv')
+    dev_file = os.path.join(data_dir, 'dev_15way_cos.tsv')
+    test_file = os.path.join(data_dir, 'test_15way_cos.tsv')
+    data = DataKWay(question_file, train_file, dev_file, test_file, 5, batch_size=5, limit = 100)
     generator = data.train_generator()
-    print(next(generator))
-    print(next(generator))
-    print(next(generator))
-    """
+    for _ in range(3):
+        batch = next(generator)
+        print(batch)
+        for i in range(batch[0].shape[0]):
+            print(data.point_to_words((batch[0][i], batch[1][i], batch[2][i])))
 
+    """
     train_file = os.path.join(data_dir, 'train.tsv')
     dev_file = os.path.join(data_dir, 'dev.tsv')
     test_file = os.path.join(data_dir, 'test.tsv')
@@ -311,3 +322,4 @@ if __name__ == '__main__':
     generator = data.dev_generator()
     print(next(generator))
     print(next(generator))
+    """
