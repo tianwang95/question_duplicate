@@ -10,7 +10,7 @@ Trains a tf model on some generator
 """
 class BaseModel(object):
 
-    def __init__(self, data, embed_weights, model, train_embed = False, log_dir = None, save_dir = None, save_freq = None, k_choices = None):
+    def __init__(self, data, embed_weights, model, train_embed = False, log_dir = None, save_dir = None, save_freq = None, k_choices = None, use_pos = False):
         self.data = data
         self.input_length = data.max_sentence_length
         self.word_dim = embed_weights.shape[1]

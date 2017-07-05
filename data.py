@@ -201,7 +201,7 @@ class DataKWay(object):
 
         self.max_sentence_length = 0    # Maximum sentence length
 
-        self.id_to_question = self.read_questions(questions_file)
+        self.id_to_question, self.id_to_pos, self.pos_id_to_tag = self.read_questions(questions_file)
         
         self.train = self.read_split(train_file)
         self.dev = self.read_split(dev_file)
@@ -214,20 +214,34 @@ class DataKWay(object):
         print("K-way Data generator initialized")
 
     def read_questions(self, filename):
+        id_to_pos_tag = []
+        pos_tag_to_id = {}
+        def get_pos_tag_id(tag):
+            if tag not in pos_tag_to_id:
+                pos_tag_to_id[tag] = len(id_to_pos_tag)
+                id_to_pos_tag.append(tag)
+            return pos_tag_to_id[tag]
+
+        def embed_pos_tags(tags):
+            return np.asarray([get_pos_tag_id(tag) for tag in tags], dtype='int32')
+
         with open(filename, 'r') as f:
             question_tsv = list(csv.reader(f, delimiter = '\t'))
             id_to_question = [None for _ in range(len(question_tsv))]
+            id_to_pos = [None for _ in range(len(question_tsv))]
             for row in question_tsv:
                 q_id = int(row[0])
-                text = row[1]
-                tokens = text.split()
+                tokens = row[1].split()
+                pos = row[2].split()
                 self.max_sentence_length = max(self.max_sentence_length, len(tokens))
                 id_to_question[q_id] = transform_to_embed(self.token_to_ind, tokens)
+                id_to_pos[q_id] = embed_pos_tags(pos)
 
-        for q_id, question in enumerate(id_to_question):
-            id_to_question[q_id] = pad_array(question, self.max_sentence_length)
+        for q_id in range(len(id_to_question)):
+            id_to_question[q_id] = pad_array(id_to_question[q_id], self.max_sentence_length)
+            id_to_pos[q_id] = pad_array(id_to_pos[q_id], self.max_sentence_length)
 
-        return id_to_question
+        return id_to_question, id_to_pos, id_to_pos_tag
 
     def read_split(self, filename):
         split = []
@@ -261,23 +275,30 @@ class DataKWay(object):
             choice_ids = random.sample(point[2:], self.k_choices - 1 - self.random_distractors) + self.get_random_questions(self.random_distractors, [q1_id, q2_id]) + [q2_id]
             random.shuffle(choice_ids)
             choices = [self.id_to_question[q_id] for q_id in choice_ids]
-            yield self.id_to_question[q1_id], np.vstack(choices), choice_ids.index(q2_id)
+            choices_pos = [self.id_to_pos[q_id] for q_id in choice_ids]
+            yield self.id_to_question[q1_id], np.vstack(choices), choice_ids.index(q2_id), self.id_to_pos[q1_id], np.vstack(choices_pos)
 
     def batch_generator(self, partial_generator):
-        X1 = []
-        X2 = []
+        x1 = []
+        x2 = []
         y = []
-        for q1, choices, index in partial_generator:
-            X1.append(q1)
-            X2.append(choices)
+        x1_pos = []
+        x2_pos = []
+        for q1, choices, index, q1_pos, choices_pos in partial_generator:
+            x1.append(q1)
+            x2.append(choices)
             y.append(index)
+            x1_pos.append(q1_pos)
+            x2_pos.append(choices_pos)
             if len(y) >= self.batch_size:
-                yield np.vstack(X1), np.asarray(X2), np.asarray(y, dtype='int32')
-                X1 = []
-                X2 = []
+                yield np.vstack(x1), np.asarray(x2), np.asarray(y, dtype='int32'), np.vstack(x1_pos), np.asarray(x2_pos)
+                x1 = []
+                x2 = []
                 y = []
+                x1_pos = []
+                x2_pos = []
         if len(y) > 0:
-            yield np.vstack(X1), np.asarray(X2), np.asarray(y, dtype='int32')
+            yield np.vstack(x1), np.asarray(x2), np.asarray(y, dtype='int32'), np.vstack(x1_pos), np.asarray(x2_pos)
 
     def train_generator(self, loop = True):
         while True:
@@ -302,7 +323,7 @@ class DataKWay(object):
 
 if __name__ == '__main__':
     data_dir = '/mnt/disks/main/question_duplicate/dataset/raw'
-    question_file = os.path.join(data_dir, 'questions_kway.tsv')
+    question_file = os.path.join(data_dir, 'questions_kway_pos.tsv')
     train_file = os.path.join(data_dir, 'train_15way_cos.tsv')
     dev_file = os.path.join(data_dir, 'dev_15way_cos.tsv')
     test_file = os.path.join(data_dir, 'test_15way_cos.tsv')
@@ -310,9 +331,21 @@ if __name__ == '__main__':
     generator = data.train_generator()
     for _ in range(3):
         batch = next(generator)
-        print(batch)
+        print("q")
+        print(batch[0])
+        print("choices")
+        print(batch[1])
+        print("target")
+        print(batch[2])
+        print("q_pos")
+        print(batch[3])
+        print("choices_pos")
+        print(batch[4])
         for i in range(batch[0].shape[0]):
             print(data.point_to_words((batch[0][i], batch[1][i], batch[2][i])))
+
+    print("self.id_to_pos")
+    print(data.pos_id_to_tag)
 
     """
     train_file = os.path.join(data_dir, 'train.tsv')
