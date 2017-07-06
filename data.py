@@ -214,16 +214,11 @@ class DataKWay(object):
         print("K-way Data generator initialized")
 
     def read_questions(self, filename):
-        id_to_pos_tag = []
-        pos_tag_to_id = {}
-        def get_pos_tag_id(tag):
-            if tag not in pos_tag_to_id:
-                pos_tag_to_id[tag] = len(id_to_pos_tag)
-                id_to_pos_tag.append(tag)
-            return pos_tag_to_id[tag]
+        id_to_pos_tag = ["CC", "CD", "DT", "EX", "FW", "IN", "JJ", "JJR", "JJS", "LS", "MD", "NN", "NNS", "NNP", "NNPS", "PDT", "POS", "PRP", "PRP$", "RB", "RBR", "RBS", "RP", "SYM", "TO", "UH", "VB", "VBD", "VBG", "VBN", "VBP", "VBZ", "WDT", "WP", "WP$", "WRB", "#", "$", "''", "-LRB-", "-RRB-", ",", ".", ":", "``"]
+        pos_tag_to_id = {tag: index for (index, tag) in enumerate(id_to_pos_tag)}
 
         def embed_pos_tags(tags):
-            return np.asarray([get_pos_tag_id(tag) for tag in tags], dtype='int32')
+            return np.asarray([pos_tag_to_id[tag] for tag in tags], dtype='int32')
 
         with open(filename, 'r') as f:
             question_tsv = list(csv.reader(f, delimiter = '\t'))
@@ -344,7 +339,7 @@ if __name__ == '__main__':
         for i in range(batch[0].shape[0]):
             print(data.point_to_words((batch[0][i], batch[1][i], batch[2][i])))
 
-    print("self.id_to_pos")
+    print("self.pos_id_to_tag")
     print(data.pos_id_to_tag)
 
     """

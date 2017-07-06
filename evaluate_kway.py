@@ -25,6 +25,7 @@ def parse_arguments():
     parser.add_argument('--k-choices', action='store', dest='k_choices', default=15, type=int)
     parser.add_argument('--random-distractors', action='store', dest='random_distractors', default=10, type=int)
     parser.add_argument('--eval-recall', action='store_true', dest='eval_recall')
+    parser.add_argument('--output-file', action='store', dest='output_file')
 
     options = parser.parse_args()
 
@@ -83,6 +84,11 @@ def all_way_eval(data, eval_file, options):
         print("Finish Embedding Questions. Time: {:.2f}".format(time.time() - start_time))
         question_embed = np.vstack(embed_list)
 
+    ### Create CSV for saving
+    output_file = None
+    if options.output_file != None:
+        output_file = open(options.output_file, 'w+')
+
     ### read in pairs
     pairs = []
     with open(eval_file, 'r') as f:
@@ -120,6 +126,13 @@ def all_way_eval(data, eval_file, options):
         for choice_id in choices:
             print(indices_to_words(data.vocabulary, data.id_to_question[choice_id]))
         print('\t'.join(['Corr: {:.2f}'.format(counts[0] / total)] + ['Top {} Acc: {:.2f}'.format((i) * 5, counts[i] / total) for i in range(1, int(k / 5) + 1)]))
+
+        ### Save into csv
+        if output_file != None:
+            output_file.write('\t'.join(str(x) for x in ([q1_id] + choices)) + '\n')
+
+    if output_file != None:
+        output_file.close()
 
 def predict_datapoint(data_point, glove_matrix):
     embed_premise = embed_sentence(data_point[0], glove_matrix)
@@ -175,7 +188,7 @@ def main():
 
     ### load data
     data_dir = '/mnt/disks/main/question_duplicate/dataset/raw'
-    question_file = os.path.join(data_dir, 'questions_kway.tsv')
+    question_file = os.path.join(data_dir, 'questions_kway_pos.tsv')
     train_file = os.path.join(data_dir, 'train_15way_cos.tsv')
     dev_file = os.path.join(data_dir, 'dev_15way_cos.tsv')
     test_file = os.path.join(data_dir, 'test_15way_cos.tsv')

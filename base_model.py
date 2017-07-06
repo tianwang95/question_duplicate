@@ -19,16 +19,24 @@ class BaseModel(object):
         self.save_freq = save_freq if save_freq else (int(data.train_count / data.batch_size) + (0 if data.train_count % data.batch_size == 0 else 1))
         print("save_freq\t{}".format(self.save_freq))
         self.k_choices = k_choices
+        self.use_pos = use_pos
 
         # inputs
         with tf.name_scope('inputs'):
-            q1_input = tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_1")
-            q2_input = None
+            self.inputs = []
+            # Q1 Input
+            self.inputs.append(tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_1"))
             if self.k_choices == None:
-                q2_input = tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_2")
+                # Q2 Input
+                self.inputs.append(tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_2"))
             else:
-                q2_input = tf.placeholder(tf.int32, [None, self.k_choices, data.max_sentence_length], name = "x_2")
-            self.inputs = [q1_input, q2_input]
+                # Choices Input
+                self.inputs.append(tf.placeholder(tf.int32, [None, self.k_choices, data.max_sentence_length], name = "x_2"))
+                if self.use_pos:
+                    # Q1 POS
+                    self.inputs.append(tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_1_pos"))
+                    # Choices POS
+                    self.inputs.append(tf.placeholder(tf.int32, [None, self.k_choices, data.max_sentence_length], name = "x_2_pos"))
 
         with tf.name_scope('targets'):
             self.y_ = tf.placeholder(tf.int32, [None], name = "y_")
@@ -36,8 +44,15 @@ class BaseModel(object):
         # embed
         with tf.name_scope('embedding'):
             embedding = tf.Variable(tf.constant(embed_weights, name="InitEmbedWeights"), trainable=train_embed, name="EmbedWeights")
-            q1_embed = tf.nn.embedding_lookup(embedding, q1_input)
-            q2_embed = tf.nn.embedding_lookup(embedding, q2_input)
+            q1_embed = tf.nn.embedding_lookup(embedding, self.inputs[0])
+            q2_embed = tf.nn.embedding_lookup(embedding, self.inputs[1])
+            print(q1_embed.get_shape())
+            print(q2_embed.get_shape())
+            if self.use_pos:
+                q1_embed = tf.concat([q1_embed, tf.one_hot(self.inputs[2], len(data.pos_id_to_tag), dtype=tf.float32)], -1)
+                q2_embed = tf.concat([q2_embed, tf.one_hot(self.inputs[3], len(data.pos_id_to_tag), dtype=tf.float32)], -1)
+                print(q1_embed.get_shape())
+                print(q2_embed.get_shape())
 
         # build the heart of the model
         with tf.name_scope('model'):
@@ -76,7 +91,14 @@ class BaseModel(object):
             print("Q1 Embed Node:\t{}".format(self.question_embedding))
 
     def feed_dict(self, batch):
-        return {self.inputs[0]: batch[0], self.inputs[1]: batch[1], self.y_: batch[2]}
+        if self.use_pos:
+            return {self.inputs[0]: batch[0],
+                    self.inputs[1]: batch[1],
+                    self.y_: batch[2],
+                    self.inputs[2]: batch[3],
+                    self.inputs[3]: batch[4]}
+        else:
+            return {self.inputs[0]: batch[0], self.inputs[1]: batch[1], self.y_: batch[2]}
         
     def train(self):
         with tf.Session() as sess:

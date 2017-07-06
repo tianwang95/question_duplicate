@@ -24,10 +24,11 @@ def parse_arguments(avail_models):
     parser.add_argument('--no-save', action='store_false', dest='save_model')
     parser.add_argument('--test', action='store_true', dest='test')
     parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices = [0, 1, 2, 3], type=int)
-    parser.add_argument('--k-choices', action='store', dest = 'k_choices', default=5, type=int)
+    parser.add_argument('--k-choices', action='store', dest = 'k_choices', default=15, type=int)
     parser.add_argument('--random-distractors', action='store', default=10, dest='random_distractors', type=int)
     parser.add_argument('--train-embed', action='store_true', dest='train_embed')
     parser.add_argument('--randomize', action='store_true', dest='randomize')
+    parser.add_argument('--use-pos', action='store_true', dest='use_pos')
 
     ## TODO: write arguments for evaluation
     ## TODO: write arguments for loading saved model
@@ -50,7 +51,7 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"] = ''
     ### Prep Data
     if options.model in k_way_models:
-        data = DataKWay("dataset/raw/questions_kway.tsv",
+        data = DataKWay("dataset/raw/questions_kway_pos.tsv",
                     "dataset/raw/train_15way_cos.tsv",
                     "dataset/raw/dev_15way_cos.tsv",
                     "dataset/raw/test_15way_cos.tsv",
@@ -103,7 +104,7 @@ def main():
         model = StackedLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense, stack_size = options.stack_size)
 
     # Create full model and train
-    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed, k_choices = options.k_choices if options.model in k_way_models else None)
+    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed, k_choices = options.k_choices if options.model in k_way_models else None, use_pos = options.use_pos)
     full_model.train()
 
 if __name__ == '__main__':
