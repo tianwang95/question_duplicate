@@ -129,7 +129,7 @@ def all_way_eval(data, eval_file, options):
 
         ### Save into csv
         if output_file != None:
-            output_file.write('\t'.join(str(x) for x in ([q1_id] + choices)) + '\n')
+            output_file.write(','.join(str(x) for x in ([q1_id] + choices)) + '\n')
 
     if output_file != None:
         output_file.close()

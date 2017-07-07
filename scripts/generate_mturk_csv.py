@@ -17,6 +17,7 @@ def parse():
 
 def main():
     options = parse()
+    random.seed(42)
 
     head_row = []
     for i in range(5):
