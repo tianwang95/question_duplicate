@@ -43,7 +43,9 @@ class BaseModel(object):
 
         # embed
         with tf.name_scope('embedding'):
-            embedding = tf.Variable(tf.constant(embed_weights, name="InitEmbedWeights"), trainable=train_embed, name="EmbedWeights")
+            embedding = tf.get_variable("EmbedWeights",
+                                        initializer=tf.constant_initializer(embed_weights, dtype=tf.float32),
+                                        trainable=train_embed)
             q1_embed = tf.nn.embedding_lookup(embedding, self.inputs[0])
             q2_embed = tf.nn.embedding_lookup(embedding, self.inputs[1])
             print(q1_embed.get_shape())
