@@ -3,6 +3,8 @@ from keras import backend as K
 """
 Expects x to be of shape (batch_size, time_steps, output_dim)
 """
+
+
 def get_time_index(x, index):
     # get shape
     batch_size = K.shape(x)[0]

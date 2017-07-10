@@ -4,6 +4,7 @@ from models.concat_lstm import ConcatLSTM
 from models.lstm_cosine import LSTMCosine
 from models.bilstm_cosine import BiLstmCosine
 from models.stacked_lstm_cosine import StackedLstmCosine
+from models.lstm_dense import LSTMDense
 from base_model import BaseModel
 import os
 import sys
@@ -41,26 +42,26 @@ def parse_arguments(avail_models):
     return options
 
 def main():
-    avail_models = ['concat_lstm', 'lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine']
-    k_way_models = ['lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine']
+    avail_models = ['concat_lstm', 'lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine', 'lstm_dense']
+    k_way_models = ['lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine', 'lstm_dense']
     options = parse_arguments(avail_models)
     ### Set GPU
-    if options.gpu_id != None:
+    if options.gpu_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(options.gpu_id)
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ''
     ### Prep Data
     if options.model in k_way_models:
         data = DataKWay("dataset/raw/questions_kway_pos.tsv",
-                    "dataset/raw/train_15way_cos.tsv",
-                    "dataset/raw/dev_15way_cos.tsv",
-                    "dataset/raw/test_15way_cos.tsv",
-                    options.k_choices,
-                    embed_dim = options.word_dim,
-                    batch_size = options.batch_size,
-                    limit = options.limit,
-                    randomize = options.randomize,
-                    random_distractors = options.random_distractors)
+                        "dataset/raw/train_15way_cos.tsv",
+                        "dataset/raw/dev_15way_cos.tsv",
+                        "dataset/raw/test_15way_cos.tsv",
+                        options.k_choices,
+                        embed_dim=options.word_dim,
+                        batch_size=options.batch_size,
+                        limit=options.limit,
+                        randomize=options.randomize,
+                        random_distractors=options.random_distractors)
 
     else:
         data = Data("dataset/raw/train.tsv",
@@ -70,7 +71,7 @@ def main():
                     batch_size=options.batch_size,
                     limit=options.limit,
                     delim_questions=(options.model in ['basic_attention', 'read_forward']),
-                    randomize = options.randomize)
+                    randomize=options.randomize)
 
     ### Set up the directory 
     name = options.name if options.name else options.model
@@ -79,7 +80,7 @@ def main():
     temp_dir = None
     if options.save_model:
         save_dir = os.path.abspath('saved_models/{}'.format(name))
-        count = 1;
+        count = 1
         while os.path.exists(save_dir):
             save_dir = os.path.abspath('saved_models/{}-{}'.format(name, count))
             count += 1
@@ -102,6 +103,8 @@ def main():
         model = BiLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
     if options.model == 'stacked_lstm_cosine':
         model = StackedLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense, stack_size = options.stack_size)
+    if options.model == 'lstm_dense':
+        model = LSTMDense(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
 
     # Create full model and train
     full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed, k_choices = options.k_choices if options.model in k_way_models else None, use_pos = options.use_pos)

@@ -1,12 +1,8 @@
-import numpy as np
-from keras.models import Sequential
 from keras.models import Model
 from keras.layers.embeddings import Embedding
 from keras.layers import Input, GRU, LSTM, Dense, merge
 import sys
 sys.path.append('../')
-from data import Data
-from custom.metrics import binary_precision, binary_recall, binary_f1
 
 """
 dim: size of lstm hidden dimension
@@ -17,16 +13,16 @@ def get_model(
         dim,
         weights,
         optimizer='rmsprop',
-        W_regularizer = None,
-        U_regularizer = None,
-        dropout_W = 0.0,
-        dropout_U = 0.0, 
-        dropout_embedding = 0.0,
-        num_hidden = 0):
+        W_regularizer=None,
+        U_regularizer=None,
+        dropout_W=0.0,
+        dropout_U=0.0,
+        dropout_embedding=0.0,
+        num_hidden=0):
 
     word_dim = weights.shape[1]
 
-    #### MODEL ####
+    # MODEL #
     embed = Embedding(input_dim = weights.shape[0],
             output_dim = word_dim,
             input_length = data.max_sentence_length,
@@ -50,7 +46,6 @@ def get_model(
     result = Dense(1, activation='sigmoid')(prev)
 
     model = Model(input=[q1_input, q2_input], output = result)
-
 
     model.compile(optimizer=optimizer,
                   loss='binary_crossentropy',

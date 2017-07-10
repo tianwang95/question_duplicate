@@ -10,6 +10,7 @@ import math
 import csv
 import heapq
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', action='store', dest='model')
@@ -21,7 +22,7 @@ def parse_arguments():
     parser.add_argument('--pred-node', action='store', dest='pred_node', default='prediction/prediction_index:0')
     parser.add_argument('--dataset', action='store', dest='dataset', default='dataset/raw/dev_15way_cos.tsv')
     parser.add_argument('--limit', action='store', dest='limit', type=int)
-    parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices = [0, 1, 2, 3], type=int)
+    parser.add_argument('--gpu-id', action='store', dest='gpu_id', choices=[0, 1, 2, 3], type=int)
     parser.add_argument('--k-choices', action='store', dest='k_choices', default=15, type=int)
     parser.add_argument('--random-distractors', action='store', dest='random_distractors', default=10, type=int)
     parser.add_argument('--eval-recall', action='store_true', dest='eval_recall')
@@ -29,11 +30,12 @@ def parse_arguments():
 
     options = parser.parse_args()
 
-    ## Print used options
+    # Print used options
     for arg in vars(options):
         print("{}\t{}".format(arg, getattr(options, arg)))
 
     return options
+
 
 def embed_sentence(sentence, glove_matrix):
     vec = np.zeros(glove_matrix.shape[1])
@@ -51,16 +53,18 @@ def embed_sentence(sentence, glove_matrix):
 
 
 def find_highest_cosine(target, ignore_ids, sentences, k):
-    sentence_scores = []
     cos_distances = np.sum(sentences * target, axis=1)
-    results = [result[0] for result in heapq.nlargest(k + len(ignore_ids), enumerate(cos_distances), key=lambda x: x[1]) if result[0] not in ignore_ids]
+    results = [result[0] for result in heapq.nlargest(k + len(ignore_ids),
+                                                      enumerate(cos_distances),
+                                                      key=lambda x: x[1]) if result[0] not in ignore_ids]
     results = results[:k]
     return results
 
+
 def all_way_eval(data, eval_file, options):
-    ### load model
-    question_embed = None
-    if options.model != None:
+    # load model
+    # question_embed = None
+    if options.model is not None:
         with tf.Session() as sess:
             question_matrix = np.vstack(data.id_to_question)
             saver = tf.train.import_meta_graph(options.model + '.meta')
@@ -71,7 +75,7 @@ def all_way_eval(data, eval_file, options):
             embed_node = tf.get_default_graph().get_tensor_by_name(options.embed_node)
             start_time = time.time()
             embed_list = []
-            for i in range(math.ceil(question_matrix.shape[0] / float(10000))):
+            for i in range(int(math.ceil(question_matrix.shape[0] / float(10000)))):
                 embed_list.append(sess.run(embed_node, feed_dict={input_node: question_matrix[i*10000:(i+1)*10000, :]}))
                 print(time.time() - start_time)
             print("Finish Embedding Questions. Time: {:.2f}".format(time.time() - start_time))
@@ -84,19 +88,19 @@ def all_way_eval(data, eval_file, options):
         print("Finish Embedding Questions. Time: {:.2f}".format(time.time() - start_time))
         question_embed = np.vstack(embed_list)
 
-    ### Create CSV for saving
+    # Create CSV for saving
     output_file = None
-    if options.output_file != None:
+    if options.output_file is not None:
         output_file = open(options.output_file, 'w+')
 
-    ### read in pairs
+    # read in pairs
     pairs = []
     with open(eval_file, 'r') as f:
-        tsv = csv.reader(f, delimiter = '\t')
+        tsv = csv.reader(f, delimiter='\t')
         for row in tsv:
             pairs.append((int(row[0]), int(row[1])))
 
-    ### run eval
+    # run eval
     k = options.k_choices
     total = 0
     indices = []
@@ -125,26 +129,29 @@ def all_way_eval(data, eval_file, options):
         print('=' * 80)
         for choice_id in choices:
             print(indices_to_words(data.vocabulary, data.id_to_question[choice_id]))
-        print('\t'.join(['Corr: {:.2f}'.format(counts[0] / total)] + ['Top {} Acc: {:.2f}'.format((i) * 5, counts[i] / total) for i in range(1, int(k / 5) + 1)]))
+        print('\t'.join(['Corr: {:.2f}'.format(counts[0] / total)] +
+                        ['Top {} Acc: {:.2f}'.format(i * 5, counts[i] / total) for i in range(1, int(k / 5) + 1)]))
 
-        ### Save into csv
-        if output_file != None:
+        # Save into csv
+        if output_file is not None:
             output_file.write(','.join(str(x) for x in ([q1_id] + choices)) + '\n')
 
-    if output_file != None:
+    if output_file is not None:
         output_file.close()
+
 
 def predict_datapoint(data_point, glove_matrix):
     embed_premise = embed_sentence(data_point[0], glove_matrix)
     embed_choices = np.vstack([embed_sentence(data_point[1][i], glove_matrix) for i in range(data_point[1].shape[0])])
-    cos_distances = np.sum(embed_choices * embed_premise, axis = 1)
+    cos_distances = np.sum(embed_choices * embed_premise, axis=1)
     idx = np.argmax(cos_distances)
     return idx
 
-def eval_dataset_avg_vec(data, options):
+
+def eval_dataset_avg_vec(data):
     correct = 0
     total = 0
-    generator = data.dev_generator(loop = False)
+    generator = data.dev_generator(loop=False)
     for batch in generator:
         for data_point in zip(batch[0], batch[1], batch[2]):
             total += 1
@@ -152,6 +159,7 @@ def eval_dataset_avg_vec(data, options):
             if y_pred == data_point[2]:
                 correct += 1
     print('Accuracy:\t{}'.format(correct / total))
+
 
 def eval_dataset_neural(data, options):
     with tf.Session() as sess:
@@ -163,30 +171,31 @@ def eval_dataset_neural(data, options):
         choices_node = tf.get_default_graph().get_tensor_by_name(options.choices_node)
         pred_node = tf.get_default_graph().get_tensor_by_name(options.pred_node)
 
-        def feed_dict(batch):
-            return{input_node: batch[0], choices_node: batch[1]}
+        def feed_dict(b):
+            return{input_node: b[0], choices_node: b[1]}
 
         correct = 0
         total = 0
         generator = data.dev_generator(loop=False)
         for batch in generator:
-            predictions = sess.run(pred_node, feed_dict = feed_dict(batch))
+            predictions = sess.run(pred_node, feed_dict=feed_dict(batch))
             print(predictions)
             correct += sum(np.equal(batch[2], predictions).tolist())
             total += batch[0].shape[0]
 
         print('Accuracy:\t{}'.format(correct / total))
 
+
 def main():
     options = parse_arguments()
 
-    ### Set GPU
-    if options.gpu_id != None:
+    # Set GPU
+    if options.gpu_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(options.gpu_id)
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ''
 
-    ### load data
+    # load data
     data_dir = '/mnt/disks/main/question_duplicate/dataset/raw'
     question_file = os.path.join(data_dir, 'questions_kway_pos.tsv')
     train_file = os.path.join(data_dir, 'train_15way_cos.tsv')
@@ -197,11 +206,12 @@ def main():
         data = DataKWay(question_file, train_file, dev_file, test_file, 5, batch_size=5, embed_dim=100)
         all_way_eval(data, test_file if options.test else dev_file, options)
     else:
-        data = DataKWay(question_file, train_file, dev_file, test_file, options.k_choices, random_distractors = options.random_distractors, batch_size=64, embed_dim=100)
-        if options.model != None:
+        data = DataKWay(question_file, train_file, dev_file, test_file,options.k_choices,
+                        random_distractors = options.random_distractors, batch_size=64, embed_dim=100)
+        if options.model is not None:
             eval_dataset_neural(data, options)
         else:
-            eval_dataset_avg_vec(data, options)
+            eval_dataset_avg_vec(data)
 
 if __name__ == '__main__':
     main()

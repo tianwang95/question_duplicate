@@ -1,12 +1,13 @@
 import tensorflow as tf
 from enum import Enum
 
+
 """
 Get length of a batch_size x L x h sequence
 """
 def length(sequence):
     used = tf.sign(tf.reduce_max(tf.abs(sequence), reduction_indices=2))
-    length = tf.reduce_sum(used, reduction_indices = 1)
+    length = tf.reduce_sum(used, reduction_indices=1)
     length = tf.cast(length, tf.int32)
     return length
 

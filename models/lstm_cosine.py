@@ -33,8 +33,8 @@ class LSTMCosine(object):
             q1_output, _ = tf.nn.dynamic_rnn(
                 lstm_cell,
                 inputs[0],
-                dtype = tf.float32,
-                sequence_length = lengths[0] 
+                dtype=tf.float32,
+                sequence_length=lengths[0]
             )
 
             scope.reuse_variables()
@@ -42,8 +42,8 @@ class LSTMCosine(object):
             choices_output, _ = tf.nn.dynamic_rnn(
                 lstm_cell,
                 choices,
-                dtype = tf.float32,
-                sequence_length = lengths[1]
+                dtype=tf.float32,
+                sequence_length=lengths[1]
             )
 
         # batch_size x dim
@@ -54,7 +54,8 @@ class LSTMCosine(object):
         with tf.name_scope("dense"):
             for i in range(self.num_dense):
                 q1_last = tf.layers.dense(q1_last, self.dim, activation=tf.nn.relu, name="dense_{}".format(i))
-                choices_last = tf.layers.dense(choices_last, self.dim, activation=tf.nn.relu, name="dense_{}".format(i), reuse=True)
+                choices_last = tf.layers.dense(choices_last, self.dim, activation=tf.nn.relu,
+                                               name="dense_{}".format(i), reuse=True)
 
         with tf.name_scope("cosine_dist"):
             q1_last_norm = tf.nn.l2_normalize(q1_last, 1)

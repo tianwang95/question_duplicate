@@ -1,5 +1,4 @@
 from stanza.nlp import CoreNLP_pb2
-from data_point import DataPoint
 from nltk.translate.bleu_score import sentence_bleu
 
 """
