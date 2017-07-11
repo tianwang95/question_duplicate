@@ -8,25 +8,28 @@ import time
 """
 Trains a tf model on some generator
 """
-class BaseModel(object):
 
-    def __init__(self, data, embed_weights, model, train_embed = False, log_dir = None, save_dir = None, save_freq = None, k_choices = None, use_pos = False):
+
+class BaseModel(object):
+    def __init__(self, data, embed_weights, model, train_embed=False, log_dir=None, save_dir=None,
+                 save_freq=None, k_choices=None, use_pos=False):
         self.data = data
         self.input_length = data.max_sentence_length
         self.word_dim = embed_weights.shape[1]
         self.log_dir = log_dir
         self.save_dir = save_dir
-        self.save_freq = save_freq if save_freq else (int(data.train_count / data.batch_size) + (0 if data.train_count % data.batch_size == 0 else 1))
+        self.save_freq = save_freq if save_freq else (int(data.train_count / data.batch_size) +
+                                                      (0 if data.train_count % data.batch_size == 0 else 1))
         print("save_freq\t{}".format(self.save_freq))
         self.k_choices = k_choices
         self.use_pos = use_pos
 
         # inputs
+        self.inputs = []
         with tf.name_scope('inputs'):
-            self.inputs = []
             # Q1 Input
             self.inputs.append(tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_1"))
-            if self.k_choices == None:
+            if self.k_choices is None:
                 # Q2 Input
                 self.inputs.append(tf.placeholder(tf.int32, [None, data.max_sentence_length], name = "x_2"))
             else:
@@ -38,6 +41,7 @@ class BaseModel(object):
                     # Choices POS
                     self.inputs.append(tf.placeholder(tf.int32, [None, self.k_choices, data.max_sentence_length], name = "x_2_pos"))
 
+        self.y_ = None
         with tf.name_scope('targets'):
             self.y_ = tf.placeholder(tf.int32, [None], name = "y_")
 
@@ -57,10 +61,10 @@ class BaseModel(object):
                 print(q2_embed.get_shape())
 
         # build the heart of the model
+        self.output = None
+        self.question_embedding = None
         with tf.name_scope('model'):
             returned = model([q1_embed, q2_embed])
-            self.output = None
-            self.question_embedding = None
             if len(returned) > 1:
                 self.output = returned[0]
                 self.question_embedding = tf.identity(returned[1], name='question_embedding')
@@ -68,11 +72,13 @@ class BaseModel(object):
                 self.output = returned
 
         # get the actual prediction
+        self.y = None
         with tf.name_scope('prediction'):
             self.output_softmax = tf.nn.softmax(self.output)
             self.y = tf.cast(tf.argmax(self.output_softmax, axis=1), tf.int32)
             self.y = tf.identity(self.y, name='prediction_index')
 
+        self.loss, self.accuracy = None, None
         with tf.name_scope('metrics'):
             # compute loss
             self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y_, logits=self.output))
@@ -80,6 +86,7 @@ class BaseModel(object):
             # compute accuracy
             self.accuracy = utils.accuracy(self.y_, self.y)
 
+        self.train_step = None
         with tf.name_scope('train'):
             self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
@@ -89,7 +96,7 @@ class BaseModel(object):
 
         # Print import tensor names
         print("Input Q1 Node:\t{}".format(self.inputs[0].name))
-        if self.question_embedding != None:
+        if self.question_embedding is not None:
             print("Q1 Embed Node:\t{}".format(self.question_embedding))
 
     def feed_dict(self, batch):
@@ -107,7 +114,7 @@ class BaseModel(object):
             # aggregate summaries and create file writers
             self.train_writer = None
             self.val_writer = None
-            if self.log_dir != None:
+            if self.log_dir is not None:
                 self.train_writer = tf.summary.FileWriter(self.log_dir + '/train', sess.graph)
                 self.val_writer = tf.summary.FileWriter(self.log_dir + '/val')
             self.saver = tf.train.Saver()
@@ -119,30 +126,37 @@ class BaseModel(object):
             save_count = 0
             start_time = time.time()
             for train_batch in self.data.train_generator():
+                # debugging shit
+                a, b = sess.run([self.output, self.y], feed_dict=self.feed_dict(train_batch))
+                print('='*80)
+                print(a)
+                print(b)
+
                 # train step
-                if self.train_writer != None:
-                    summary, _= sess.run([self.merged_summary, self.train_step], feed_dict = self.feed_dict(train_batch))
+                if self.train_writer is not None:
+                    summary, _ = sess.run([self.merged_summary, self.train_step], feed_dict=self.feed_dict(train_batch))
                     self.train_writer.add_summary(summary, iteration)
                 else:
-                    sess.run(self.train_step, feed_dict = self.feed_dict(train_batch))
+                    sess.run(self.train_step, feed_dict=self.feed_dict(train_batch))
 
                 # eval 1 dev minibatch every 10 train minibatches
-                if self.val_writer != None and iteration % 10 == 0:
-                    summary = sess.run(self.merged_summary, feed_dict = self.feed_dict(next(dev_generator)))
+                if self.val_writer is not None and iteration % 10 == 0:
+                    summary = sess.run(self.merged_summary, feed_dict=self.feed_dict(next(dev_generator)))
                     self.val_writer.add_summary(summary, iteration)
 
                 # save every self.save_freq examples
                 if iteration % self.save_freq == self.save_freq - 1:
                     print("Iteration: {}\tTime: {}".format(iteration, time.time() - start_time))
-                    loss, acc = self.evaluate(self.data.dev_generator(loop = False), sess, save_count)
-                    if self.save_dir != None:
-                        self.saver.save(sess, os.path.join(self.save_dir, "model{}-acc:{:.3f}-loss:{:.3f}.ckpt".format(save_count, acc, loss)), global_step = iteration)
+                    loss, acc = self.evaluate(self.data.dev_generator(loop=False), sess, save_count)
+                    if self.save_dir is not None:
+                        self.saver.save(sess, os.path.join(self.save_dir, "model{}-acc:{:.3f}-loss:{:.3f}.ckpt".
+                                                           format(save_count, acc, loss)), global_step=iteration)
                     save_count += 1
 
                 # update everything  
                 iteration += 1
 
-    def evaluate(self, generator, sess, iteration, name = 'evaluation'):
+    def evaluate(self, generator, sess, iteration, name='evaluation'):
         loss_total = 0.0
         accuracy_total = 0.0
         mistakes = []
