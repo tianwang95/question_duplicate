@@ -128,13 +128,10 @@ class LSTMKway(object):
                 # (batch size * 15) x 2 * dim
 
             with tf.name_scope("dense"):
-                """
                 for i in range(self.num_dense):
-                    merged_last = tf.layers.dense(merged_last, 2 * self.dim,
+                    merged_last = tf.layers.dense(merged_last, merged_last.get_shape().as_list()[-1],
                                                   activation=tf.nn.relu, name="dense_{}".format(i))
-                                                  """
-                merged_last = tf.layers.dense(merged_last, 2 * merged_last.get_shape().as_list()[-1],
-                                              activation=tf.nn.relu, name="dense_hidden")
+
                 merged_last_condensed = tf.layers.dense(merged_last, 1, activation=tf.nn.relu, name="final_dense")
                 output = tf.reshape(merged_last_condensed, [-1, self.k_choices])
             return output, q1_last

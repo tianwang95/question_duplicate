@@ -39,6 +39,61 @@ class TestLayers(unittest.TestCase):
 
         self.assertTrue(np.all(np.isclose(result, correct)))
 
+    def test_reshape(self):
+        x_init = np.asarray([[1, 2, 3, 4, 5],
+                             [5, 4, 3, 2, 1]], dtype=np.float32)
+
+        x = tf.placeholder(tf.float32, [None, 5])
+        y = tf.reshape(tf.tile(x, [1, 3]), [-1, x.get_shape().as_list()[1]])
+
+        with tf.Session() as sess:
+            tf.global_variables_initializer().run()
+            result = sess.run(y, feed_dict={x: x_init})
+
+        correct = np.asarray([[1, 2, 3, 4, 5],
+                              [1, 2, 3, 4, 5],
+                              [1, 2, 3, 4, 5],
+                              [5, 4, 3, 2, 1],
+                              [5, 4, 3, 2, 1],
+                              [5, 4, 3, 2, 1]], dtype=np.float32)
+
+        self.assertTrue(np.all(np.isclose(result, correct)))
+
+    def test_merge_end(self):
+        a_init = np.asarray([[1, 2, 3, 4, 5],
+                             [5, 4, 3, 2, 1]], dtype=np.float32)
+        b_init = np.asarray([[6, 6],
+                             [7, 7]], dtype=np.float32)
+
+        a = tf.placeholder(tf.float32, [None, 5])
+        b = tf.placeholder(tf.float32, [None, 2])
+        y = tf.concat([a, b], -1)
+
+        with tf.Session() as sess:
+            tf.global_variables_initializer().run()
+            result = sess.run(y, feed_dict={a: a_init, b: b_init})
+
+        correct = np.asarray([[1, 2, 3, 4, 5, 6, 6],
+                              [5, 4, 3, 2, 1, 7, 7]], dtype=np.float32)
+
+        self.assertTrue(np.all(np.isclose(result, correct)))
+
+    def test_dense_batch(self):
+        x_init = np.asarray([[1, 2, 3, 4, 5],
+                             [0.5, 0.4, 0.3, 0.2, 0.1]], dtype=np.float32)
+
+        weights = np.asarray([5, 4, 3, 2, 1], dtype=np.float32)
+
+        x = tf.placeholder(tf.float32, [None, 5])
+        y = tf.layers.dense(x, 1, activation=tf.nn.relu, kernel_initializer=tf.constant_initializer(weights))
+
+        with tf.Session() as sess:
+            tf.global_variables_initializer().run()
+            result = sess.run(y, feed_dict={x: x_init})
+
+        correct = np.asarray([[35], [5.5]], dtype=np.float32)
+
+        self.assertTrue(np.all(np.isclose(result, correct)))
 
 if __name__ == '__main__':
     unittest.main()

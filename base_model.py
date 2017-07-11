@@ -126,12 +126,6 @@ class BaseModel(object):
             save_count = 0
             start_time = time.time()
             for train_batch in self.data.train_generator():
-                # debugging shit
-                a, b = sess.run([self.output, self.y], feed_dict=self.feed_dict(train_batch))
-                print('='*80)
-                print(a)
-                print(b)
-
                 # train step
                 if self.train_writer is not None:
                     summary, _ = sess.run([self.merged_summary, self.train_step], feed_dict=self.feed_dict(train_batch))
