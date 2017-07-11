@@ -66,6 +66,8 @@ class LSTMKway(object):
                             dtype=tf.float32,
                             sequence_length=lengths[1]
                         )
+                        q1_output = tf.concat(q1_output, -1)
+                        choices_output = tf.concat(choices_output, -1)
                         curr_inputs = [q1_output, choices_output]
                         print('stack {}'.format(i))
             else:
@@ -126,10 +128,13 @@ class LSTMKway(object):
                 # (batch size * 15) x 2 * dim
 
             with tf.name_scope("dense"):
+                """
                 for i in range(self.num_dense):
                     merged_last = tf.layers.dense(merged_last, 2 * self.dim,
                                                   activation=tf.nn.relu, name="dense_{}".format(i))
-
+                                                  """
+                merged_last = tf.layers.dense(merged_last, 2 * merged_last.get_shape().as_list()[-1],
+                                              activation=tf.nn.relu, name="dense_{}".format(i))
                 merged_last_condensed = tf.layers.dense(merged_last, 1, activation=tf.nn.relu, name="final_dense")
                 output = tf.reshape(merged_last_condensed, [-1, self.k_choices])
             return output, q1_last
