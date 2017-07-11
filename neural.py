@@ -12,7 +12,7 @@ def parse_arguments(avail_models):
     parser.add_argument('--name', action='store', dest='name')
     parser.add_argument('--rnn-dim', action='store', default=128, dest='rnn_dim', type=int)
     parser.add_argument('--batch-size', action='store', default=64, dest='batch_size', type=int)
-    parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = [50, 100, 200, 300])
+    parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices=[50, 100, 200, 300])
     parser.add_argument('--num-dense', action='store', dest='num_dense', default=0, type=int)
     # parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
     parser.add_argument('--limit', action='store', dest='limit', type=int)
@@ -73,9 +73,7 @@ def main():
 
     ### Set up the directory 
     name = options.name if options.name else options.model
-    log_dir = None
     save_dir = None
-    temp_dir = None
     if options.save_model:
         save_dir = os.path.abspath('saved_models/{}'.format(name))
         count = 1
