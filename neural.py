@@ -1,13 +1,8 @@
-import tensorflow as tf
 from data import Data, DataKWay
 from models.concat_lstm import ConcatLSTM
-from models.lstm_cosine import LSTMCosine
-from models.bilstm_cosine import BiLstmCosine
-from models.stacked_lstm_cosine import StackedLstmCosine
-from models.lstm_dense import LSTMDense
+from models.lstm_kway import LSTMKway
 from base_model import BaseModel
 import os
-import sys
 import argparse
 import tempfile
 
@@ -19,7 +14,6 @@ def parse_arguments(avail_models):
     parser.add_argument('--batch-size', action='store', default=64, dest='batch_size', type=int)
     parser.add_argument('--word-dim', action='store', default=100, dest='word_dim', type=int, choices = [50, 100, 200, 300])
     parser.add_argument('--num-dense', action='store', dest='num_dense', default=0, type=int)
-    parser.add_argument('--lstm-stack-size', action='store', default=1, dest='stack_size', type=int)
     # parser.add_argument('--epochs', action='store', default=10, dest='epochs', type=int)
     parser.add_argument('--limit', action='store', dest='limit', type=int)
     parser.add_argument('--no-save', action='store_false', dest='save_model')
@@ -30,8 +24,12 @@ def parse_arguments(avail_models):
     parser.add_argument('--train-embed', action='store_true', dest='train_embed')
     parser.add_argument('--randomize', action='store_true', dest='randomize')
     parser.add_argument('--use-pos', action='store_true', dest='use_pos')
+    # Options for LSTM model
+    parser.add_argument('--use-attention', action='store_true', dest='use_attention')
+    parser.add_argument('--use-dense', action='store_true', dest='use_dense')
+    parser.add_argument('--use-bilstm', action='store_true', dest='use_bilstm')
+    parser.add_argument('--lstm-stack-size', action='store', default=1, dest='stack_size', type=int)
 
-    ## TODO: write arguments for evaluation
     ## TODO: write arguments for loading saved model
     options = parser.parse_args()
 
@@ -42,8 +40,8 @@ def parse_arguments(avail_models):
     return options
 
 def main():
-    avail_models = ['concat_lstm', 'lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine', 'lstm_dense']
-    k_way_models = ['lstm_cosine', 'bilstm_cosine', 'stacked_lstm_cosine', 'lstm_dense']
+    avail_models = ['concat_lstm', 'lstm_kway']
+    k_way_models = ['lstm_kway']
     options = parse_arguments(avail_models)
     ### Set GPU
     if options.gpu_id is not None:
@@ -96,18 +94,18 @@ def main():
     ### Get the model
     model = None
     if options.model == 'concat_lstm':
-        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1], num_hidden=options.num_dense)
-    if options.model == 'lstm_cosine':
-        model = LSTMCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
-    if options.model == 'bilstm_cosine':
-        model = BiLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
-    if options.model == 'stacked_lstm_cosine':
-        model = StackedLstmCosine(options.rnn_dim, options.k_choices, num_dense=options.num_dense, stack_size = options.stack_size)
-    if options.model == 'lstm_dense':
-        model = LSTMDense(options.rnn_dim, options.k_choices, num_dense=options.num_dense)
+        model = ConcatLSTM(data.max_sentence_length, options.rnn_dim, data.embedding_matrix.shape[1],
+                           num_hidden=options.num_dense)
+    if options.model == 'lstm_kway':
+        model = LSTMKway(options.rnn_dim, options.k_choices, num_dense=options.num_dense,
+                         use_dense=options.use_dense, use_self_attention=options.use_attention,
+                         stack_size=options.stack_size, use_bilstm=options.use_bilstm)
 
     # Create full model and train
-    full_model = BaseModel(data, data.embedding_matrix, model, log_dir = log_dir, save_dir = save_dir, train_embed = options.train_embed, k_choices = options.k_choices if options.model in k_way_models else None, use_pos = options.use_pos)
+    full_model = BaseModel(data, data.embedding_matrix, model, log_dir=log_dir, save_dir=save_dir,
+                           train_embed=options.train_embed,
+                           k_choices=options.k_choices if options.model in k_way_models else None,
+                           use_pos=options.use_pos)
     full_model.train()
 
 if __name__ == '__main__':
